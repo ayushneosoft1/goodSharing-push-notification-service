@@ -1,7 +1,19 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Environment / secrets
 .env
+.env.*
+!.env.example
+
+# Firebase credentials
 firebase-service-account.json
+*-firebase-adminsdk-*.json
+
+# Certificates / private keys
 *.pem
 *.key
-coverage
-dist
+
+# Build / test output
+coverage/
+dist/
