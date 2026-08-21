@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Firebase service-account credentials
+firebase-service-account.json
+*-firebase-adminsdk-*.json
+**/*-firebase-adminsdk-*.json
+
+# Private keys / certificates
+*.pem
+*.key
+
+# Build / test output
+coverage/
+dist/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
