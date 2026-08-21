@@ -8,7 +8,10 @@ import { typeDefs } from "./graphql/schema.js";
 import { resolvers } from "./graphql/resolvers.js";
 import { checkDatabaseConnection } from "./db/pool.js";
 
+import { getFirebaseApp } from "./config/firebase.js";
+
 export async function createApp() {
+  getFirebaseApp();
   const app = express();
 
   const schema = buildSubgraphSchema({
@@ -64,7 +67,7 @@ export async function createApp() {
             throw new Error("Invalid user context");
           }
 
-          const userId = user.userId;
+          const userId = user.id;
 
           if (!userId || typeof userId !== "string") {
             throw new Error("Invalid user context");
