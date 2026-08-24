@@ -1,5 +1,7 @@
 import { pool } from "../db/pool.js";
 
+const allowedPlatforms = ["android", "ios"];
+
 export async function registerDevice({
   userId,
   deviceId,
@@ -16,6 +18,12 @@ export async function registerDevice({
 
   if (!fcmToken) {
     throw new Error("fcmToken is required");
+  }
+
+  if (!allowedPlatforms.includes(platform)) {
+    throw new Error(
+      "Invalid platform. Supported platforms are android and ios",
+    );
   }
 
   const query = `

@@ -1,6 +1,12 @@
 import "dotenv/config";
 
-const requiredEnv = ["PORT", "DATABASE_URL"];
+const requiredEnv = [
+  "PORT",
+  "DATABASE_URL",
+  "FIREBASE_PROJECT_ID",
+  "FIREBASE_CLIENT_EMAIL",
+  "FIREBASE_PRIVATE_KEY",
+];
 
 for (const key of requiredEnv) {
   if (!process.env[key]) {

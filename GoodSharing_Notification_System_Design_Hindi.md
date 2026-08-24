@@ -16,20 +16,20 @@ Is document ka purpose:
 
 - Proposed notification architecture ko document karna.
 - Milestone 1 ka exact scope define karna.
-- Notification Service ke responsibilities define karna.
+- Notification Service ki responsibilities define karna.
 - Native Android FCM registration flow explain karna.
 - PostgreSQL device-registration design define karna.
 - Authentication aur security decisions document karna.
 - Testing aur acceptance criteria define karna.
 - Future notification milestones ko Milestone 1 se clearly separate rakhna.
 
-**Important:** Milestone 1 mein complete notification system implement nahi kiya jayega.
+**Important:** Milestone 1 mein complete notification delivery system implement nahi kiya jayega.
 
 ---
 
 # 2. Current Notification System
 
-Current system mein mobile application Expo Push Service ke through notifications handle karti hai.
+Current system mein mobile application Expo Push Service ke through notifications handle karti thi.
 
 Current conceptual flow:
 
@@ -44,9 +44,9 @@ Expo Push Service
 Android Device
 ```
 
-Is approach mein Expo Push Service GoodSharing ke notification delivery flow ka important dependency hai.
+Is approach mein Expo Push Service GoodSharing ke notification delivery flow ka important dependency tha.
 
-Future architecture mein Expo Push Service ko remove karke direct Firebase Cloud Messaging use kiya jayega.
+Milestone 1 mein mobile application ko native device push token flow par migrate kiya gaya hai. Future notification delivery mein Expo Push Service ko remove karke direct Firebase Cloud Messaging use kiya jayega.
 
 ---
 
@@ -84,7 +84,7 @@ Future system mein:
 - Redis asynchronous notification processing ke liye use hoga.
 - Firebase Admin SDK backend se FCM ke saath communicate karega.
 
-**Redis, queue processing aur notification sending Milestone 1 ka part nahi hain.**
+**Redis, queue processing, retries aur notification sending Milestone 1 ka part nahi hain.**
 
 ---
 
@@ -94,7 +94,7 @@ Future system mein:
 
 Milestone 1 ka primary objective hai:
 
-> Android application se native Firebase registration obtain karke authenticated user ke saath Notification Service ke PostgreSQL database mein securely register karna.
+> Android application se native Firebase device token obtain karke authenticated user ke saath Notification Service ke PostgreSQL database mein securely register karna.
 
 Expected flow:
 
@@ -113,13 +113,15 @@ Notification Service
 PostgreSQL
 ```
 
+Milestone 1 ka focus reliable, authenticated, duplicate-safe aur lifecycle-aware device registration foundation banana hai.
+
 ---
 
 # 5. Milestone 1 Scope
 
-Milestone 1 mein following functionality implement ki jayegi:
+Milestone 1 mein following functionality implement ki gayi hai:
 
-### Notification Service
+## Notification Service
 
 - Node.js 20
 - ES modules
@@ -127,27 +129,34 @@ Milestone 1 mein following functionality implement ki jayegi:
 - PostgreSQL integration
 - Firebase Admin SDK initialization
 - Environment-based configuration
-- Device registration GraphQL operations
-- Device deactivation/unregistration
+- `registerDevice` GraphQL mutation
+- `unregisterDevice` GraphQL mutation
+- Device deactivation/reactivation
 - Health-check endpoint
 - PostgreSQL migration
-- Automated tests
+- Input/platform validation
+- Duplicate registration protection
+- Active FCM token uniqueness
+- FCM token rotation support
+- Authentication through Gateway `x-user.id`
 - Dockerfile
+- `.dockerignore`
 - README
 - `.env.example`
-- `.gitignore`
+- Automated unit/integration tests
 
-### Mobile Application
+## Mobile Application
 
-- Firebase Android application configuration
-- Native Firebase registration obtain karna
-- Login ke baad registration
-- Signup ke baad registration
-- Authenticated app restart par registration refresh
-- Logout par device deactivation
-- Permission denied hone par application ko continue karna
+- Native Android device push token registration
+- Login ke baad device registration
+- Signup ke baad device registration
+- Authenticated app startup par safe re-registration
+- FCM token refresh/change handling
+- Logout se pehle device deactivation
+- Permission denied hone par authentication continue karna
 - Expo Push Token generation remove karna
-- Expo Push Service ke direct calls remove karna
+- Direct Expo Push Service calls remove karna
+- Firebase Admin credentials mobile application mein include na karna
 
 ---
 
@@ -173,7 +182,7 @@ Ye functionality future milestones mein implement hogi.
 
 # 7. Firebase Setup
 
-GoodSharing ke permanently selected Firebase Spark project ka use kiya jayega.
+GoodSharing ke selected Firebase project ka use kiya jayega.
 
 Android application ka exact package name:
 
@@ -187,9 +196,9 @@ Firebase Android configuration ke liye Firebase project se downloaded:
 google-services.json
 ```
 
-use kiya jayega.
+use kiya ja sakta hai as mobile application configuration.
 
-### Important Security Rule
+## Important Security Rule
 
 `google-services.json` mobile application configuration ka part ho sakta hai.
 
@@ -208,9 +217,9 @@ Service-account credential:
 
 # 8. Firebase Admin SDK
 
-Notification Service Firebase Admin SDK use karegi.
+Notification Service Firebase Admin SDK use karti hai for future server-side FCM communication and Firebase project integration.
 
-Backend configuration environment variables/secrets se load hogi.
+Backend configuration environment variables/secrets se load hoti hai.
 
 Expected configuration:
 
@@ -223,6 +232,8 @@ FIREBASE_PRIVATE_KEY=
 Alternative production implementation mein service-account credential mounted secret ke through bhi load ki ja sakti hai.
 
 Private Firebase credentials source code mein hard-code nahi kiye jayenge.
+
+**Milestone 1 mein Firebase Admin initialization implemented hai; actual notification sending intentionally out of scope hai.**
 
 ---
 
@@ -250,21 +261,23 @@ Real values `.env.example` mein nahi hongi.
 
 # 10. Git Security
 
-`.gitignore` mein sensitive files/patterns include honge:
+`.gitignore` aur `.dockerignore` sensitive files/patterns ko exclude karte hain:
 
 ```text
-node_modules
+node_modules/
 .env
 firebase-service-account.json
+*-firebase-adminsdk-*.json
 *.pem
 *.key
-coverage
-dist
+coverage/
+dist/
+.git/
 ```
 
-Production credentials, passwords, JWT secrets, database passwords aur private keys repository mein commit nahi kiye jayenge.
+Production credentials, passwords, database credentials aur private keys repository mein commit nahi kiye jayenge.
 
-Agar secret accidentally Git history mein commit ho jaye, to sirf later commit mein delete karna sufficient nahi hoga. Immediately inform karna aur credential rotate karna required hoga.
+Agar secret accidentally Git history mein commit ho jaye, to sirf later commit mein delete karna sufficient nahi hoga. Credential rotation aur history cleanup required hoga.
 
 ---
 
@@ -279,9 +292,10 @@ Service:
 3. Device information validate karegi.
 4. PostgreSQL mein registration create/update karegi.
 5. Existing registration ko duplicate hone se prevent karegi.
-6. Last-seen/update timestamps maintain karegi.
+6. `updated_at` aur `last_seen_at` maintain karegi.
 7. Logout par registration deactivate karegi.
-8. Invalid requests ke liye appropriate GraphQL errors return karegi.
+8. Previously deactivated registration ko re-activate kar sakti hai.
+9. Invalid requests ke liye appropriate GraphQL errors return karegi.
 
 ---
 
@@ -308,13 +322,13 @@ Notification Service
 
 Apollo Gateway JWT verify karega aur authenticated user context Notification Service tak forward karega.
 
-Notification Service ko user identity request body mein manually trust nahi karni chahiye.
+Notification Service ko request body mein manually supplied `userId` ko authentication source ke roop mein trust nahi karna chahiye.
 
 ---
 
 # 13. Authenticated User Identification
 
-Notification Service authenticated user ko Gateway ke trusted user context se identify karegi.
+Notification Service authenticated user ko Gateway ke trusted user context se identify karti hai.
 
 Conceptually:
 
@@ -326,19 +340,32 @@ Apollo Gateway
  |
  | validate JWT
  v
-Authenticated user ID
+x-user.id
  |
  v
 Notification Service
+ |
+ v
+device_registrations.user_id
 ```
 
-Isse mobile client kisi doosre user ke ID ke naam par device registration create nahi kar sakta.
+Gateway example:
+
+```text
+x-user: {"id":"159","email":"user@example.com"}
+```
+
+Notification Service `x-user.id` ko authenticated user ID ke roop mein use karti hai.
+
+Mobile client mutation input mein `userId` provide nahi karta.
+
+Isse client kisi doosre user ke ID ke naam par device registration create nahi kar sakta.
 
 ---
 
 # 14. Device Registration Model
 
-Milestone 1 mein ek user ke multiple devices support kiye jayenge.
+Milestone 1 mein ek user ke multiple devices support kiye jaate hain.
 
 Example:
 
@@ -350,7 +377,7 @@ User 101
    +---- Tablet
 ```
 
-Har device ki separate registration hogi.
+Har device ki separate registration hoti hai.
 
 ---
 
@@ -362,7 +389,7 @@ Primary table:
 device_registrations
 ```
 
-Suggested columns:
+Columns:
 
 ```text
 id
@@ -376,27 +403,29 @@ updated_at
 last_seen_at
 ```
 
-### Column Meaning
+## Column Meaning
 
-| Column         | Purpose                                   |
-| -------------- | ----------------------------------------- |
-| `id`           | Unique database record ID                 |
-| `user_id`      | Authenticated GoodSharing user            |
-| `device_id`    | Device identification                     |
-| `fcm_token`    | Native Firebase registration token        |
-| `platform`     | Android                                   |
-| `is_active`    | Registration active/deactivated state     |
-| `created_at`   | Registration creation time                |
-| `updated_at`   | Last record modification time             |
-| `last_seen_at` | Last successful registration/refresh time |
+| Column         | Purpose                                       |
+| -------------- | --------------------------------------------- |
+| `id`           | Unique database record ID                     |
+| `user_id`      | Authenticated GoodSharing user                |
+| `device_id`    | Stable application-level device identifier    |
+| `fcm_token`    | Native Firebase device token                  |
+| `platform`     | Supported mobile platform: `android` or `ios` |
+| `is_active`    | Registration active/deactivated state         |
+| `created_at`   | Registration creation time                    |
+| `updated_at`   | Last record modification time                 |
+| `last_seen_at` | Last successful registration/refresh time     |
 
 ---
 
 # 16. Device Identification Strategy
 
-Mobile application ek stable application-level `device_id` maintain karegi.
+Mobile application ek stable application-level `device_id` maintain karti hai.
 
-`device_id` ka purpose ek physical/app installation ko identify karna hai.
+`device_id` ka purpose current app installation ko identify karna hai.
+
+Ye authenticated `user_id` nahi hai.
 
 Registration identity:
 
@@ -404,7 +433,7 @@ Registration identity:
 user_id + device_id
 ```
 
-ko unique logical registration maana jayega.
+ko unique logical registration maana jaata hai.
 
 Database level par:
 
@@ -412,7 +441,7 @@ Database level par:
 UNIQUE(user_id, device_id)
 ```
 
-constraint use kiya jayega.
+constraint use kiya jaata hai.
 
 ---
 
@@ -444,11 +473,13 @@ Existing registration update hogi:
 
 Isse app restart ya token refresh ke baad duplicate database records nahi banenge.
 
+Database constraint aur `ON CONFLICT (user_id, device_id)` upsert behavior dono duplicate prevention mein contribute karte hain.
+
 ---
 
 # 18. Same Device, Different User
 
-Same physical device par different users login kar sakte hain.
+Same physical device par different users different times par login kar sakte hain.
 
 Example:
 
@@ -456,8 +487,6 @@ Example:
 User A → Device X
 User B → Device X
 ```
-
-Ye dono logically different registrations ho sakti hain.
 
 Database design:
 
@@ -479,7 +508,30 @@ User A + Device X
 User A + Device X
 ```
 
-Logout ke time current authenticated user's registration deactivate ki jayegi.
+Important constraint:
+
+Active FCM tokens ke liye database mein partial unique index hai. Isliye same FCM token multiple users ke active registrations mein simultaneously exist nahi kar sakta.
+
+Expected lifecycle:
+
+```text
+User A
+  |
+  +-- Device X + Token T
+  |
+  +-- logout
+  |
+  +-- registration inactive
+  |
+  v
+User B
+  |
+  +-- Device X + Token T
+  |
+  +-- registration active
+```
+
+Logout ke time current authenticated user ki registration deactivate ki jaati hai.
 
 ---
 
@@ -514,13 +566,13 @@ Existing Registration
 Update registration
 ```
 
-Instead of:
+instead of:
 
 ```text
 Create another row
 ```
 
-following information refresh hogi:
+Following information refresh hoti hai:
 
 ```text
 fcm_token
@@ -529,11 +581,13 @@ updated_at
 last_seen_at
 ```
 
+Agar registration previously inactive thi aur same user/device dobara register karta hai, registration active state mein reactivate ho sakti hai.
+
 ---
 
 # 21. Logout Strategy
 
-Milestone 1 mein logout ke time registration ko permanently delete karne ke bajay **deactivate** karna preferred strategy hai.
+Milestone 1 mein logout ke time registration ko permanently delete karne ke bajay **deactivate** kiya jaata hai.
 
 Example:
 
@@ -545,7 +599,7 @@ Advantages:
 
 - Registration history retain hoti hai.
 - Debugging easier hoti hai.
-- Same device future login par reactivate ho sakta hai.
+- Same user/device future login par registration reactivate ho sakti hai.
 - Database identity stable rehti hai.
 
 Logout flow:
@@ -568,7 +622,7 @@ PostgreSQL
 Device Registration
 ```
 
-JWT ko local storage se delete karne se pehle logout/deactivation request complete karne ki koshish ki jayegi.
+JWT ko local storage se delete karne se pehle logout/deactivation request complete karne ki koshish ki jaati hai.
 
 ---
 
@@ -598,6 +652,8 @@ Login
      Continue app normally
 ```
 
+Notification registration errors authentication flow ko fail nahi karte.
+
 ---
 
 # 23. Token / Registration Refresh
@@ -609,9 +665,10 @@ Isliye application:
 - Login ke baad registration karegi.
 - Signup ke baad registration karegi.
 - Already-authenticated app start par registration refresh karegi.
-- Token refresh hone par backend registration update karegi.
+- Native token refresh event par backend registration update karegi.
+- Registration refresh ko idempotent rakhegi.
 
-Registration refresh ko idempotent rakha jayega.
+FCM token rotation ke case mein existing `(user_id, device_id)` registration update hoti hai instead of creating an unnecessary duplicate.
 
 ---
 
@@ -629,7 +686,7 @@ JWT received
 Notification permission/status check
     |
     v
-Native FCM registration
+Native FCM device token
     |
     v
 registerDevice()
@@ -646,7 +703,10 @@ User Signup
 Authenticated session
     |
     v
-Native FCM registration
+Notification permission/status check
+    |
+    v
+Native FCM device token
     |
     v
 registerDevice()
@@ -662,19 +722,19 @@ Already authenticated user ke case mein:
 App Start
     |
     v
-Existing JWT
+Existing JWT/session
     |
     v
-Native FCM registration
+Native FCM registration refresh
     |
     v
 registerDevice()
     |
     v
-Update last_seen_at
+Update registration timestamps/token
 ```
 
-Is flow se stale registration information refresh ho sakti hai.
+Registration idempotent hone ki wajah se app restart duplicate registration create nahi karta.
 
 ---
 
@@ -693,7 +753,7 @@ is_active = false
 Delete local JWT/session
 ```
 
-Logout request mein current authenticated user aur current device identify kiya jayega.
+Logout request current authenticated user aur current `device_id` ke basis par registration deactivate karti hai.
 
 ---
 
@@ -701,13 +761,15 @@ Logout request mein current authenticated user aur current device identify kiya 
 
 Milestone 1 ke primary operations:
 
-## registerDevice
+## `registerDevice`
 
 Purpose:
 
 - Device registration create/update karna.
+- Existing registration ko reactivate karna.
+- Token rotation update karna.
 
-Expected input concept:
+Expected input:
 
 ```text
 deviceId
@@ -715,28 +777,33 @@ fcmToken
 platform
 ```
 
-Authenticated user request context se identify hoga.
+Authenticated user `x-user.id` ke through context se identify hota hai.
 
----
+`userId` mutation input ka part nahi hai.
 
-## unregisterDevice
+## `unregisterDevice`
 
 Purpose:
 
-- Current device registration deactivate karna.
+- Current authenticated user's device registration deactivate karna.
 
-Device identity request/context se identify ki jayegi.
+Expected input:
 
----
+```text
+deviceId
+```
+
+User identity Gateway-provided authentication context se identify hoti hai.
 
 ## Device Registration Response
 
-Response mein unnecessary sensitive token data return nahi kiya jayega.
+Response mein FCM token unnecessary exposure se avoid kiya jaata hai.
 
-Response mein useful fields ho sakti hain:
+Useful fields:
 
 ```text
 id
+userId
 deviceId
 platform
 isActive
@@ -745,7 +812,7 @@ updatedAt
 lastSeenAt
 ```
 
-Complete FCM token response mein unnecessarily expose nahi kiya jayega.
+Complete FCM token GraphQL response mein return nahi kiya jaata.
 
 ---
 
@@ -753,38 +820,54 @@ Complete FCM token response mein unnecessarily expose nahi kiya jayega.
 
 Common situations:
 
-### Unauthenticated Request
+## Unauthenticated Request
+
+Example:
 
 ```text
-UNAUTHENTICATED
+Authentication required
 ```
 
-### Invalid Input
+## Invalid Authentication Context
+
+Example:
 
 ```text
-BAD_USER_INPUT
+Invalid x-user header
 ```
 
-### Database Error
+## Invalid Input
+
+Examples:
+
+```text
+userId is required
+deviceId is required
+fcmToken is required
+Invalid platform. Supported platforms are android and ios
+```
+
+## Database Error
 
 Internal error response with sensitive database details hidden.
 
-### Firebase Configuration Error
+## Firebase Configuration Error
 
-Server-side configuration issue log hoga, lekin private credential/error details client ko return nahi kiye jayenge.
+Server-side configuration issue log ho sakta hai, lekin private credential/error details client ko return nahi kiye jayenge.
 
 ---
 
 # 30. FCM Token Security
 
-FCM registration token sensitive operational data hai.
+FCM registration token operationally sensitive data hai.
 
 Isliye:
 
-- Complete token production logs mein print nahi hoga.
-- GraphQL response mein unnecessary token return nahi hoga.
-- Token database mein securely store hoga.
-- Firebase Admin private credentials PostgreSQL mein store nahi honge.
+- Complete token unnecessary production logs mein print nahi hoga.
+- GraphQL response mein token return nahi kiya jaata.
+- Token PostgreSQL mein securely store hota hai.
+- Firebase Admin private credentials PostgreSQL mein store nahi hote.
+- Firebase Admin credentials mobile application mein nahi jayenge.
 
 ---
 
@@ -792,9 +875,9 @@ Isliye:
 
 Do alag configurations hain.
 
-### Mobile Application
+## Mobile Application
 
-Firebase Android configuration:
+Firebase Android application configuration:
 
 ```text
 google-services.json
@@ -802,7 +885,7 @@ google-services.json
 
 Ye mobile Firebase configuration hai.
 
-### Backend Notification Service
+## Backend Notification Service
 
 Firebase Admin credentials:
 
@@ -820,7 +903,7 @@ Ye private backend credentials hain.
 
 # 32. Health Check
 
-Notification Service mein health-check endpoint provide kiya jayega.
+Notification Service mein health-check endpoint provide kiya gaya hai.
 
 Example:
 
@@ -836,13 +919,13 @@ Expected response:
 }
 ```
 
-Health check ka purpose service availability verify karna hai.
+Health check ka purpose service availability aur database connectivity verify karna hai.
 
 ---
 
 # 33. Docker Support
 
-Notification Service ke liye Dockerfile provide kiya jayega.
+Notification Service ke liye Dockerfile provide kiya gaya hai.
 
 Expected runtime:
 
@@ -860,32 +943,60 @@ include honge.
 
 Secrets image ke andar bake nahi kiye jayenge.
 
+`.dockerignore` exclude karta hai:
+
+```text
+.env
+.env.*
+Firebase service-account JSON
+private keys
+node_modules
+coverage
+dist
+.git
+```
+
 ---
 
 # 34. Testing Strategy
 
-Milestone 1 ke important behavior ke liye automated tests honge.
+Milestone 1 mein automated tests multiple levels par available hain.
 
-### Registration Tests
+## Registration Tests
 
 - New device registration
 - Existing device update
-- Duplicate prevention
-- Multiple devices for same user
+- Repeated registration/idempotency
+- FCM token rotation
 - Same device with different users
-- Registration refresh
 - Deactivation
-- Unauthorized registration
+- Reactivation
+- Invalid platform/input
+- Missing required fields
 
-### Permission Behavior
+## Authentication Tests
 
-Mobile application mein permission denied case verify kiya jayega.
+- `x-user.id` authentication
+- Unauthenticated `registerDevice` mutation
+- Malformed `x-user`
+- `userId` ko authentication source ke roop mein reject karna
+- Authenticated mutation context
 
-### Integration Testing
+## Database Integration Tests
 
-- GraphQL operation
-- PostgreSQL persistence
-- Authentication context
+- `user_id` type validation
+- `(user_id, device_id)` unique constraint
+- Active FCM token unique partial index
+- Duplicate active FCM token rejection
+- Inactive-token reuse
+- Database-backed uniqueness behavior
+
+Current automated test result:
+
+```text
+Test Files: 3 passed
+Tests: 27 passed
+```
 
 ---
 
@@ -899,11 +1010,11 @@ Manual verification flow:
 3. Start Apollo Gateway
 4. Build/install Android application
 5. Login
-6. Verify native Firebase registration
+6. Verify native Firebase device token
 7. Verify PostgreSQL registration
 8. Restart application
 9. Verify no duplicate row
-10. Verify last_seen_at/update
+10. Verify registration/timestamp refresh
 11. Logout
 12. Verify registration inactive
 ```
@@ -914,14 +1025,14 @@ Manual verification flow:
 
 Screen recording mein following demonstrate kiya jayega:
 
-1. Notification Service start karna.
-2. Android application mein login karna.
-3. Native Firebase registration create hona.
-4. PostgreSQL mein registration save hona.
+1. User login.
+2. Native Firebase/FCM device token generation.
+3. Token registration request completion.
+4. PostgreSQL mein device registration save hona.
 5. Application restart karna.
-6. Duplicate record create na hona.
+6. Duplicate registration create na hona.
 7. Logout karna.
-8. Registration inactive/deactivated hona.
+8. PostgreSQL mein registration inactive/deactivated hona.
 
 Recording mein hide karna hai:
 
@@ -929,7 +1040,7 @@ Recording mein hide karna hai:
 - Passwords
 - JWTs
 - Database credentials
-- Firebase service-account credentials
+- Firebase Admin service-account credentials
 - Private keys
 
 ---
@@ -941,19 +1052,23 @@ Notification Service repository mein:
 ```text
 src/
   ...
+
 migrations/
   ...
+
 tests/
-  ...
+  authentication.test.js
+  deviceRegistration.test.js
+  database.integration.test.js
 
 Dockerfile
+.dockerignore
 .env.example
 .gitignore
 package.json
+package-lock.json
 README.md
 ```
-
-include honge.
 
 README mein:
 
@@ -964,30 +1079,35 @@ README mein:
 - Migration instructions
 - Firebase Admin configuration
 - Local server start
+- Docker startup
 - Tests run karne ka command
 - Health-check instructions
+- Authenticated GraphQL examples
+- Authentication flow
+- Token uniqueness behavior
+- Logout/deactivation behavior
 
-document honge.
+document kiya gaya hai.
 
 ---
 
 # 38. Git and Pull Request Strategy
 
-Milestone 1 ke liye do separate pull requests submit ki jayengi.
+Milestone 1 ke liye do separate pull requests hain:
 
-### PR 1
+## PR 1
 
 ```text
 Notification Service
 ```
 
-### PR 2
+## PR 2
 
 ```text
 GoodSharing Mobile App
 ```
 
-Main branch par direct commit nahi kiya jayega.
+Main branch par direct commit nahi kiya jana chahiye.
 
 Meaningful commits use kiye jayenge.
 
@@ -999,14 +1119,24 @@ Example:
 
 ```text
 docs: define notification service design
+
 chore: initialize notification service
+
 feat: add postgres device registration migration
+
 feat: add firebase admin initialization
+
 feat: implement device registration graphql API
+
 feat: implement device deactivation
+
 test: add device registration tests
+
 feat: integrate native fcm registration in mobile app
+
 test: verify device registration lifecycle
+
+docs: update milestone 1 documentation
 ```
 
 Actual commit structure implementation ke according adjust kiya ja sakta hai.
@@ -1015,37 +1145,39 @@ Actual commit structure implementation ke according adjust kiya ja sakta hai.
 
 # 40. Migration from Expo Push Service
 
-Future migration mein:
+Previous flow:
 
 ```text
 Current:
-
 Mobile App
     |
     v
 Expo Push Service
 ```
 
-replace hoga with:
+Milestone 1 mobile registration flow:
 
 ```text
-Future:
-
 Mobile App
     |
     v
-Native FCM Registration
+Native Device Push Token
     |
     v
 Apollo Gateway
     |
     v
 Notification Service
+    |
+    v
+PostgreSQL
 ```
 
-Existing Expo Push Tokens ko FCM registration ke roop mein migrate nahi kiya jayega.
+Future notification delivery flow direct FCM ke through hoga.
 
-Users fresh native Firebase registration ke through register honge.
+Existing Expo Push Tokens ko native FCM registrations ke equivalent ke roop mein migrate nahi kiya jayega.
+
+Users fresh native Firebase device registration ke through register honge.
 
 ---
 
@@ -1079,7 +1211,7 @@ Firebase Cloud Messaging
 User Devices
 ```
 
-Ye Milestone 1 mein implement nahi kiya jayega.
+Ye Milestone 1 mein implement nahi kiya gaya hai.
 
 ---
 
@@ -1087,13 +1219,13 @@ Ye Milestone 1 mein implement nahi kiya jayega.
 
 Future milestones mein following entities add/modify ho sakti hain:
 
-### Category Subscriptions
+## Category Subscriptions
 
 ```text
 category_subscriptions
 ```
 
-### Notification Records
+## Notification Records
 
 ```text
 notification_records
@@ -1115,11 +1247,7 @@ hai.
 
 One user → many device registrations.
 
-Reason:
-
-User multiple Android devices use kar sakta hai.
-
----
+**Reason:** User multiple mobile devices use kar sakta hai.
 
 ## Decision 2 – Duplicate Prevention
 
@@ -1129,13 +1257,19 @@ Use:
 UNIQUE(user_id, device_id)
 ```
 
-Reason:
+**Reason:** Same user ke same device ke duplicate registrations prevent karna.
 
-Same user ke same device ke duplicate registrations prevent karna.
+## Decision 3 – Active FCM Token Uniqueness
 
----
+Use partial unique index:
 
-## Decision 3 – Logout
+```text
+UNIQUE(fcm_token) WHERE is_active = true
+```
+
+**Reason:** Same active FCM token simultaneously multiple active users/registrations ko represent nahi karna chahiye.
+
+## Decision 4 – Logout
 
 Registration deactivate ki jayegi:
 
@@ -1143,67 +1277,59 @@ Registration deactivate ki jayegi:
 is_active = false
 ```
 
-Reason:
+**Reason:** History retain karna aur future reactivation support karna.
 
-History retain karna aur future reactivation support karna.
-
----
-
-## Decision 4 – Authentication
+## Decision 5 – Authentication
 
 User identity Gateway ke validated authentication context se aayegi.
 
-Reason:
+**Reason:** Client-provided user ID ko blindly trust nahi karna.
 
-Client-provided user ID ko blindly trust nahi karna.
-
----
-
-## Decision 5 – Firebase Credentials
+## Decision 6 – Firebase Credentials
 
 Admin credentials backend-only rahengi.
 
-Reason:
+**Reason:** Firebase Admin credentials privileged server-side credentials hain.
 
-Admin credentials ke paas Firebase project ke privileged operations ka access ho sakta hai.
-
----
-
-## Decision 6 – Permission Denied
+## Decision 7 – Permission Denied
 
 Permission denial login ko block nahi karega.
 
-Reason:
-
-Push notification permission application authentication ka prerequisite nahi hai.
+**Reason:** Push notification permission authentication ka prerequisite nahi hai.
 
 ---
 
 # 44. Milestone 1 Acceptance Criteria
 
-Milestone 1 tab complete maana jayega jab:
+Milestone 1 implementation ke acceptance criteria:
 
-- [ ] App native Firebase registration produce kare, ExpoPushToken nahi.
-- [ ] Registration authenticated user se correctly associate ho.
-- [ ] One user multiple devices register kar sake.
-- [ ] Same device registration duplicate record create na kare.
-- [ ] Authenticated app restart registration refresh kare.
-- [ ] `last_seen_at`/update information refresh ho.
-- [ ] Logout correct device registration ko deactivate kare.
-- [ ] Unauthenticated user device register na kar sake.
-- [ ] Notification permission denied hone par login/application fail na ho.
-- [ ] Firebase Admin credentials backend-only rahen.
-- [ ] Private credentials Git history mein present na hon.
-- [ ] PostgreSQL migration available ho.
-- [ ] GraphQL schema/resolvers available hon.
-- [ ] Health endpoint available ho.
-- [ ] Dockerfile available ho.
-- [ ] README exact local setup explain kare.
-- [ ] Automated tests pass hon.
-- [ ] Notification Service PR ready ho.
-- [ ] Mobile App PR ready ho.
-- [ ] Screen recording complete ho.
-- [ ] Milestone 2 start na kiya gaya ho jab tak Milestone 1 review/approval complete na ho.
+- [x] App native Firebase/FCM device token flow use kare, Expo Push Token flow nahi.
+- [x] Registration authenticated user se correctly associate ho.
+- [x] One user multiple devices register kar sake.
+- [x] Same user/device registration duplicate record create na kare.
+- [x] Authenticated app startup registration safely refresh ho.
+- [x] `last_seen_at` / update information refresh ho.
+- [x] Logout correct device registration ko deactivate kare.
+- [x] Unauthenticated user device register na kar sake.
+- [x] Notification permission denied hone par login/application fail na ho.
+- [x] FCM token rotation existing registration ko update kare.
+- [x] Previously deactivated registration reactivate ho sake.
+- [x] Firebase Admin credentials backend-only rahen.
+- [x] Private credentials repository mein commit na hon.
+- [x] PostgreSQL migration available ho.
+- [x] GraphQL schema/resolvers available hon.
+- [x] Health endpoint available ho.
+- [x] Dockerfile available ho.
+- [x] `.dockerignore` sensitive files exclude kare.
+- [x] README exact local/Docker/test setup explain kare.
+- [x] Automated tests pass hon.
+- [x] Database-backed migration/constraint tests pass hon.
+- [x] Notification Service PR prepared ho.
+- [x] Mobile App PR prepared ho.
+- [ ] Required screen recording complete aur submitted ho.
+- [x] Milestone 2 notification-sending work abhi start nahi kiya gaya hai.
+
+**Current automated verification:** `27/27 tests passed`.
 
 ---
 
@@ -1211,11 +1337,11 @@ Milestone 1 tab complete maana jayega jab:
 
 ## 1. Expo push token aur native Firebase registration mein difference kya hai?
 
-Expo push token Expo Push Service ke through notification delivery ke liye use hota hai.
+Expo push token Expo Push Service ke through notification delivery ke liye use hota tha.
 
-Native Firebase registration Firebase Cloud Messaging ke saath directly device ko identify karta hai.
+Native device push token Firebase Cloud Messaging ke saath direct device registration ko represent karta hai.
 
-Milestone 1 mein native Firebase registration use ki jayegi.
+Milestone 1 mein native Firebase device token flow use kiya ja raha hai.
 
 ---
 
@@ -1223,7 +1349,7 @@ Milestone 1 mein native Firebase registration use ki jayegi.
 
 Firebase Admin credentials privileged backend credentials hain.
 
-Agar ye mobile APK mein chale jayein to attacker un credentials ko extract karke backend Firebase resources par unauthorized operations kar sakta hai.
+Agar ye mobile APK mein chale jayein to attacker credentials extract karke Firebase project par unauthorized server-side operations kar sakta hai.
 
 Isliye ye sirf backend/server-side environment mein rahenge.
 
@@ -1231,7 +1357,7 @@ Isliye ye sirf backend/server-side environment mein rahenge.
 
 ## 3. One user ke multiple device registrations kyun?
 
-User ek se zyada Android devices use kar sakta hai.
+User ek se zyada mobile devices use kar sakta hai.
 
 Example:
 
@@ -1246,9 +1372,9 @@ Dono devices ko independently register karna required hai.
 
 ## 4. Application reinstall hone par kya ho sakta hai?
 
-Reinstall ke baad application ka local device identity/token change ho sakta hai.
+Reinstall ke baad local application state aur generated device identity change ho sakti hai.
 
-Fresh installation native Firebase registration obtain karegi aur backend par new/updated registration create karegi.
+Fresh installation native Firebase registration obtain karegi aur backend par new registration create kar sakti hai.
 
 Old registration future cleanup strategy ke according inactive reh sakti hai.
 
@@ -1263,6 +1389,8 @@ UNIQUE(user_id, device_id)
 ```
 
 same user aur same device ke duplicate records prevent karega.
+
+Additionally application registration `ON CONFLICT` update behavior use karti hai.
 
 ---
 
@@ -1283,9 +1411,11 @@ is_active
 
 ## 7. Same device par doosra user login kare to?
 
-Current user's registration ko logout ke time deactivate kiya jayega.
+Current user's registration logout ke time deactivate ki jaati hai.
 
-Doosre authenticated user ke liye us user ke context mein separate registration create/update ki jayegi.
+Doosre authenticated user ke login par same device ke liye us user ke context mein separate registration create/update ki ja sakti hai.
+
+Active FCM token uniqueness constraint ensure karta hai ki same token multiple active registrations mein simultaneously remain na kare.
 
 ---
 
@@ -1297,13 +1427,15 @@ Milestone 1 mein deactivate preferred hai:
 is_active = false
 ```
 
-Isse registration history retain hoti hai aur future login par registration reactivate/update ki ja sakti hai.
+Isse registration history retain hoti hai aur future login par registration update/reactivate ki ja sakti hai.
 
 ---
 
 ## 9. Notification Service authenticated user ko kaise identify karegi?
 
 Apollo Gateway JWT validate karega aur authenticated user context Notification Service ko forward karega.
+
+Notification Service `x-user.id` ko authenticated user identity ke roop mein use karti hai.
 
 Client ke arbitrary `userId` ko authentication source nahi maana jayega.
 
@@ -1315,7 +1447,7 @@ Client ke arbitrary `userId` ko authentication source nahi maana jayega.
 
 ```text
 Login success
-→ FCM registration
+→ native device token
 → registerDevice
 ```
 
@@ -1323,7 +1455,7 @@ Login success
 
 ```text
 Signup success
-→ FCM registration
+→ native device token
 → registerDevice
 ```
 
@@ -1332,7 +1464,7 @@ Signup success
 ```text
 App startup
 → authenticated session detected
-→ FCM registration refresh
+→ native device token refresh
 → registerDevice
 ```
 
@@ -1340,7 +1472,8 @@ App startup
 
 ```text
 Logout
-→ unregister/deactivate device
+→ unregisterDevice
+→ is_active = false
 → local JWT/session removal
 ```
 
@@ -1382,12 +1515,12 @@ Backend credentials mobile application mein nahi jayenge.
 
 # 46. Milestone 1 Completion Boundary
 
-Milestone 1 ka final boundary:
+Milestone 1 ka final implementation boundary:
 
 ```text
 Android App
     |
-    | Native Firebase Registration
+    | Native Firebase Device Token
     v
 Apollo Gateway
     |
@@ -1402,7 +1535,7 @@ PostgreSQL
 
 Is point par notification **send nahi ki jayegi**.
 
-Milestone 1 ka goal sirf reliable, authenticated aur duplicate-safe device registration foundation banana hai.
+Milestone 1 ka goal reliable, authenticated, duplicate-safe aur lifecycle-aware device registration foundation banana hai.
 
 ---
 
@@ -1415,7 +1548,7 @@ Milestone 1 mein hum complete notification delivery system nahi bana rahe hain.
 Hum pehle foundation bana rahe hain:
 
 ```text
-Native FCM Registration
+Native FCM Device Registration
         ↓
 Authenticated User
         ↓
@@ -1424,7 +1557,7 @@ Notification Service
 PostgreSQL
 ```
 
-Is foundation ke through GoodSharing securely identify kar sakega ki kaunse authenticated user ke kaunse Android devices notification receive karne ke liye registered hain.
+Is foundation ke through GoodSharing securely identify kar sakta hai ki kaunse authenticated user ke kaunse devices notification registration ke liye active hain.
 
 Future milestones mein isi registration data ko use karke category-based post notifications, queues, retries aur Firebase notification delivery implement ki jayegi.
 
@@ -1443,35 +1576,87 @@ Future milestones mein isi registration data ko use karke category-based post no
 
 # 49. Milestone Status
 
-**Current status: In Progress**
+**Current status: Milestone 1 Implementation Complete**
 
-Initial repository setup complete:
+## Completed backend work
 
-- Git repository initialized
-- Feature branch created
-- Node.js 20 configured
-- ES modules configured
-- `.env.example` created
-- `.gitignore` created
-- README initialized
-- System design documented
-
-Implementation remaining:
-
-- Notification Service source code
-- PostgreSQL migration
-- Firebase Admin initialization
+- Git repository and feature branch setup
+- Node.js 20 runtime
+- ES modules configuration
+- Environment configuration
+- PostgreSQL device registration migration
+- Firebase Admin SDK initialization
 - Apollo federated subgraph
-- Device registration API
-- Device deactivation API
-- Authentication integration
+- `registerDevice` GraphQL mutation
+- `unregisterDevice` GraphQL mutation
+- Gateway `x-user.id` authentication integration
+- Device registration validation
+- Duplicate registration protection
+- Active FCM token uniqueness protection
+- FCM token rotation handling
+- Same-device user switching support
+- Device deactivation
+- Device reactivation
 - Health endpoint
 - Dockerfile
-- Automated tests
-- Mobile native FCM integration
-- Notification Service PR
-- Mobile App PR
-- Manual verification
-- Screen recording
+- `.dockerignore`
+- README
+- Automated unit/integration tests
 
-**Milestone 1 is not complete until all acceptance criteria are satisfied and both PRs are ready for review.**
+## Completed mobile work
+
+- Native device push token registration
+- Removal of `getExpoPushTokenAsync`
+- Removal of direct Expo Push Service calls
+- Device registration after login
+- Device registration after signup
+- Authenticated app-startup re-registration
+- FCM token refresh/change handling
+- Device unregistration before logout
+- Permission-denied handling without breaking authentication
+- No Firebase Admin credentials in the mobile application
+
+## Automated verification
+
+Current backend test result:
+
+```text
+Test Files: 3 passed
+Tests: 27 passed
+```
+
+Coverage includes:
+
+- `x-user.id` authentication
+- Unauthenticated GraphQL mutation
+- Repeated registration
+- FCM token rotation
+- Same-device user switching
+- Logout/deactivation
+- Reactivation
+- Invalid platform/input
+- Database-backed migration and constraint behavior
+
+## Remaining submission activities
+
+- Final PR review/cleanup
+- Mobile physical-device verification
+- PostgreSQL end-to-end demonstration
+- Required screen recording
+- PR submission/review
+
+## Milestone 2 boundary
+
+The following remain intentionally out of scope until Milestone 1 review/approval is complete:
+
+- Post creation notification sending
+- Posts Service notification integration
+- Redis
+- Queues
+- Retries
+- Background notification workers
+- Category-based notification delivery
+- Notification batching
+- Notification delivery tracking
+
+**Milestone 1 implementation and automated verification are complete; final submission requires the physical-device demonstration/recording and PR review.**

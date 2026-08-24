@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS device_registrations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-    user_id UUID NOT NULL,
+    user_id BIGINT NOT NULL,
     device_id TEXT NOT NULL,
     fcm_token TEXT NOT NULL,
 
@@ -25,5 +25,6 @@ CREATE INDEX IF NOT EXISTS idx_device_registrations_user_id
 CREATE INDEX IF NOT EXISTS idx_device_registrations_active
     ON device_registrations (is_active);
 
-CREATE INDEX IF NOT EXISTS idx_device_registrations_fcm_token
-    ON device_registrations (fcm_token);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_device_registrations_active_fcm_token_unique
+    ON device_registrations (fcm_token)
+    WHERE is_active = TRUE;
