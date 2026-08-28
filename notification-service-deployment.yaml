@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: services
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: nileshjs/goodsharing-push-notification-service:v1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4003
+          env:
+            - name: PORT
+              value: "4003"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: notification-service-secret
+                  key: DATABASE_URL
+
+            - name: FIREBASE_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: notification-service-secret
+                  key: FIREBASE_PROJECT_ID
+
+            - name: FIREBASE_CLIENT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: notification-service-secret
+                  key: FIREBASE_CLIENT_EMAIL
+
+            - name: FIREBASE_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: notification-service-secret
+                  key: FIREBASE_PRIVATE_KEY
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: services
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - protocol: TCP
+      port: 4003
+      targetPort: 4003
+  type: ClusterIP
