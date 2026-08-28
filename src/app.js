@@ -50,6 +50,9 @@ export async function createApp() {
       context: async ({ req }) => {
         const rawUser = req.headers["x-user"];
 
+        console.log("RAW x-user:", rawUser);
+        console.log("RAW x-user type:", typeof rawUser);
+
         if (!rawUser) {
           return {
             userId: null,
