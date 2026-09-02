@@ -26,12 +26,30 @@ export const typeDefs = gql`
     deviceId: String!
   }
 
+  input SendTestNotificationInput {
+    title: String!
+    body: String!
+    type: String
+    targetId: String
+  }
+
+  type TestNotificationResult {
+    successCount: Int!
+    failureCount: Int!
+    totalTokens: Int!
+  }
+
   type Query {
     health: Health!
   }
 
   type Mutation {
     registerDevice(input: RegisterDeviceInput!): DeviceRegistration!
+
     unregisterDevice(input: UnregisterDeviceInput!): DeviceRegistration!
+
+    sendTestNotification(
+      input: SendTestNotificationInput!
+    ): TestNotificationResult!
   }
 `;

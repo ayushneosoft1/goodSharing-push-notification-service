@@ -1,7 +1,14 @@
 import {
   registerDevice,
   unregisterDevice,
+  getActiveDeviceRegistrations,
+  deactivateDeviceRegistrationByToken,
 } from "../services/deviceRegistrationService.js";
+
+import {
+  sendPushNotificationToTokens,
+  isInvalidFcmTokenError,
+} from "../services/firebaseMessagingService.js";
 
 function mapDeviceRegistration(device) {
   if (!device) {
@@ -58,6 +65,56 @@ export const resolvers = {
       });
 
       return mapDeviceRegistration(device);
+    },
+
+    sendTestNotification: async (_parent, { input }, context) => {
+      const userId = context.userId;
+
+      if (!userId) {
+        throw new Error("Authentication required");
+      }
+
+      const devices = await getActiveDeviceRegistrations(userId);
+
+      const tokens = devices.map((device) => device.fcm_token).filter(Boolean);
+
+      if (tokens.length === 0) {
+        return {
+          successCount: 0,
+          failureCount: 0,
+          totalTokens: 0,
+        };
+      }
+
+      const response = await sendPushNotificationToTokens({
+        tokens,
+        title: input.title,
+        body: input.body,
+        data: {
+          type: input.type ?? "test",
+          ...(input.targetId ? { targetId: input.targetId } : {}),
+        },
+      });
+
+      const cleanupPromises = [];
+
+      response.responses.forEach((result, index) => {
+        if (!result.success && isInvalidFcmTokenError(result.error)) {
+          const invalidToken = tokens[index];
+
+          cleanupPromises.push(
+            deactivateDeviceRegistrationByToken(invalidToken),
+          );
+        }
+      });
+
+      await Promise.all(cleanupPromises);
+
+      return {
+        successCount: response.successCount,
+        failureCount: response.failureCount,
+        totalTokens: tokens.length,
+      };
     },
   },
 };

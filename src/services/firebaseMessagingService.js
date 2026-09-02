@@ -100,3 +100,12 @@ export async function sendPushNotificationToTokens({
 
   return messaging.sendEachForMulticast(message);
 }
+
+export function isInvalidFcmTokenError(error) {
+  const code = error?.code;
+
+  return (
+    code === "messaging/registration-token-not-registered" ||
+    code === "messaging/invalid-registration-token"
+  );
+}
