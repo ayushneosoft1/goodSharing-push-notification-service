@@ -8,8 +8,11 @@ vi.mock("../src/db/pool.js", () => ({
   },
 }));
 
-const { registerDevice, unregisterDevice } =
-  await import("../src/services/deviceRegistrationService.js");
+const {
+  registerDevice,
+  unregisterDevice,
+  deactivateDeviceRegistrationByToken,
+} = await import("../src/services/deviceRegistrationService.js");
 
 describe("deviceRegistrationService", () => {
   beforeEach(() => {
@@ -221,7 +224,6 @@ describe("deviceRegistrationService", () => {
 
       expect(mockQuery).toHaveBeenCalledTimes(2);
 
-      // Both calls use the same user/device identity.
       expect(mockQuery.mock.calls[0][1]).toEqual([
         "159",
         "device-001",
@@ -484,6 +486,64 @@ describe("deviceRegistrationService", () => {
       ).rejects.toThrow("Device registration not found");
 
       expect(mockQuery).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ============================================================
+  // deactivateDeviceRegistrationByToken
+  // ============================================================
+
+  describe("deactivateDeviceRegistrationByToken", () => {
+    it("should reject when fcmToken is missing", async () => {
+      await expect(deactivateDeviceRegistrationByToken()).rejects.toThrow(
+        "fcmToken is required",
+      );
+
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it("should deactivate an active device registration by FCM token", async () => {
+      const deactivatedDevice = {
+        id: "registration-001",
+        user_id: "159",
+        device_id: "device-001",
+        fcm_token: "token-invalid",
+        platform: "android",
+        is_active: false,
+        created_at: new Date(),
+        updated_at: new Date(),
+        last_seen_at: new Date(),
+      };
+
+      mockQuery.mockResolvedValueOnce({
+        rows: [deactivatedDevice],
+      });
+
+      const result = await deactivateDeviceRegistrationByToken("token-invalid");
+
+      expect(result).toEqual(deactivatedDevice);
+      expect(result.id).toBe("registration-001");
+      expect(result.user_id).toBe("159");
+      expect(result.device_id).toBe("device-001");
+      expect(result.fcm_token).toBe("token-invalid");
+      expect(result.is_active).toBe(false);
+
+      expect(mockQuery).toHaveBeenCalledTimes(1);
+
+      expect(mockQuery.mock.calls[0][1]).toEqual(["token-invalid"]);
+    });
+
+    it("should return null when the FCM token is not active or does not exist", async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [],
+      });
+
+      const result = await deactivateDeviceRegistrationByToken("unknown-token");
+
+      expect(result).toBeNull();
+      expect(mockQuery).toHaveBeenCalledTimes(1);
+
+      expect(mockQuery.mock.calls[0][1]).toEqual(["unknown-token"]);
     });
   });
 });

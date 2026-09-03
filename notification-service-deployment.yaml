@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: nileshjs/goodsharing-push-notification-service:v1.0.0
+          image: nileshjs/goodsharing-push-notification-service:v1.0.2
           imagePullPolicy: Always
           ports:
             - containerPort: 4003

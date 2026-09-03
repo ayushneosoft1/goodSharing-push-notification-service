@@ -102,3 +102,64 @@ export async function unregisterDevice({ userId, deviceId }) {
 
   return rows[0];
 }
+
+export async function getActiveDeviceRegistrations(userId) {
+  if (!userId) {
+    throw new Error("userId is required");
+  }
+
+  const query = `
+    SELECT
+      id,
+      user_id,
+      device_id,
+      fcm_token,
+      platform,
+      is_active,
+      created_at,
+      updated_at,
+      last_seen_at
+    FROM device_registrations
+    WHERE user_id = $1
+      AND is_active = TRUE
+    ORDER BY updated_at DESC;
+  `;
+
+  const values = [userId];
+
+  const { rows } = await pool.query(query, values);
+
+  return rows;
+}
+
+export async function deactivateDeviceRegistrationByToken(fcmToken) {
+  if (!fcmToken) {
+    throw new Error("fcmToken is required");
+  }
+
+  const query = `
+    UPDATE device_registrations
+    SET
+      is_active = FALSE,
+      updated_at = NOW(),
+      last_seen_at = NOW()
+    WHERE fcm_token = $1
+      AND is_active = TRUE
+    RETURNING
+      id,
+      user_id,
+      device_id,
+      fcm_token,
+      platform,
+      is_active,
+      created_at,
+      updated_at,
+      last_seen_at;
+  `;
+
+  const values = [fcmToken];
+
+  const { rows } = await pool.query(query, values);
+
+  return rows[0] ?? null;
+}
