@@ -50,8 +50,10 @@ export async function createApp() {
       context: async ({ req }) => {
         const rawUser = req.headers["x-user"];
 
-        console.log("RAW x-user:", rawUser);
-        console.log("RAW x-user type:", typeof rawUser);
+        // Safe diagnostic logs: do not log JWT or FCM token values
+        console.log("GRAPHQL OPERATION:", req.body?.operationName);
+        console.log("HAS X-USER:", Boolean(rawUser));
+        console.log("X-USER TYPE:", typeof rawUser);
 
         if (!rawUser) {
           return {
