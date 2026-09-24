@@ -16,6 +16,17 @@ export const typeDefs = gql`
     lastSeenAt: String!
   }
 
+  type InAppNotification {
+    id: ID!
+    userId: ID!
+    title: String!
+    message: String!
+    postId: ID
+    isRead: Boolean!
+    createdAt: String!
+    readAt: String
+  }
+
   input RegisterDeviceInput {
     deviceId: String!
     fcmToken: String!
@@ -41,6 +52,12 @@ export const typeDefs = gql`
 
   type Query {
     health: Health!
+
+    userCategorySubscriptions: [ID!]!
+
+    notifications(limit: Int, offset: Int): [InAppNotification!]!
+
+    unreadNotificationCount: Int!
   }
 
   type Mutation {
@@ -51,5 +68,13 @@ export const typeDefs = gql`
     sendTestNotification(
       input: SendTestNotificationInput!
     ): TestNotificationResult!
+
+    subscribeCategory(categoryId: ID!): Boolean!
+
+    unsubscribeCategory(categoryId: ID!): Boolean!
+
+    markNotificationRead(notificationId: ID!): Boolean!
+
+    markAllNotificationsRead: Boolean!
   }
 `;

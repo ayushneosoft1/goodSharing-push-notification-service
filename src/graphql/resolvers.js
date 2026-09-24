@@ -10,6 +10,19 @@ import {
   isInvalidFcmTokenError,
 } from "../services/firebaseMessagingService.js";
 
+import {
+  subscribeCategory,
+  unsubscribeCategory,
+  getUserCategorySubscriptions,
+} from "../services/categorySubscriptionService.js";
+
+import {
+  getNotifications,
+  getUnreadNotificationCount,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from "../services/inAppNotificationService.js";
+
 function mapDeviceRegistration(device) {
   if (!device) {
     throw new Error("Device registration not found");
@@ -27,20 +40,63 @@ function mapDeviceRegistration(device) {
   };
 }
 
+function mapInAppNotification(notification) {
+  return {
+    id: notification.id,
+    userId: notification.user_id,
+    title: notification.title,
+    message: notification.message,
+    postId: notification.post_id,
+    isRead: notification.is_read,
+    createdAt: notification.created_at.toISOString(),
+    readAt: notification.read_at ? notification.read_at.toISOString() : null,
+  };
+}
+
+function requireAuthenticatedUser(context) {
+  const userId = context.userId;
+
+  if (!userId) {
+    throw new Error("Authentication required");
+  }
+
+  return userId;
+}
+
 export const resolvers = {
   Query: {
     health: () => ({
       status: "ok",
     }),
+
+    userCategorySubscriptions: async (_parent, _args, context) => {
+      const userId = requireAuthenticatedUser(context);
+
+      return getUserCategorySubscriptions(userId);
+    },
+
+    notifications: async (_parent, { limit, offset }, context) => {
+      const userId = requireAuthenticatedUser(context);
+
+      const notifications = await getNotifications({
+        userId,
+        limit,
+        offset,
+      });
+
+      return notifications.map(mapInAppNotification);
+    },
+
+    unreadNotificationCount: async (_parent, _args, context) => {
+      const userId = requireAuthenticatedUser(context);
+
+      return getUnreadNotificationCount(userId);
+    },
   },
 
   Mutation: {
     registerDevice: async (_parent, { input }, context) => {
-      const userId = context.userId;
-
-      if (!userId) {
-        throw new Error("Authentication required");
-      }
+      const userId = requireAuthenticatedUser(context);
 
       const device = await registerDevice({
         userId,
@@ -53,11 +109,7 @@ export const resolvers = {
     },
 
     unregisterDevice: async (_parent, { input }, context) => {
-      const userId = context.userId;
-
-      if (!userId) {
-        throw new Error("Authentication required");
-      }
+      const userId = requireAuthenticatedUser(context);
 
       const device = await unregisterDevice({
         userId,
@@ -68,11 +120,7 @@ export const resolvers = {
     },
 
     sendTestNotification: async (_parent, { input }, context) => {
-      const userId = context.userId;
-
-      if (!userId) {
-        throw new Error("Authentication required");
-      }
+      const userId = requireAuthenticatedUser(context);
 
       const devices = await getActiveDeviceRegistrations(userId);
 
@@ -115,6 +163,43 @@ export const resolvers = {
         failureCount: response.failureCount,
         totalTokens: tokens.length,
       };
+    },
+
+    subscribeCategory: async (_parent, { categoryId }, context) => {
+      const userId = requireAuthenticatedUser(context);
+
+      await subscribeCategory({
+        userId,
+        categoryId,
+      });
+
+      return true;
+    },
+
+    unsubscribeCategory: async (_parent, { categoryId }, context) => {
+      const userId = requireAuthenticatedUser(context);
+
+      await unsubscribeCategory({
+        userId,
+        categoryId,
+      });
+
+      return true;
+    },
+
+    markNotificationRead: async (_parent, { notificationId }, context) => {
+      const userId = requireAuthenticatedUser(context);
+
+      return markNotificationRead({
+        userId,
+        notificationId,
+      });
+    },
+
+    markAllNotificationsRead: async (_parent, _args, context) => {
+      const userId = requireAuthenticatedUser(context);
+
+      return markAllNotificationsRead(userId);
     },
   },
 };
