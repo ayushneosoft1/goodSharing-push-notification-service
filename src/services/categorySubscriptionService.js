@@ -64,7 +64,11 @@ export async function getUserCategorySubscriptions(userId) {
   }
 
   const query = `
-    SELECT category_id
+    SELECT
+      id,
+      user_id,
+      category_id,
+      created_at
     FROM category_subscriptions
     WHERE user_id = $1
     ORDER BY category_id;
@@ -74,5 +78,10 @@ export async function getUserCategorySubscriptions(userId) {
 
   const { rows } = await pool.query(query, values);
 
-  return rows.map((row) => row.category_id);
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    categoryId: row.category_id,
+    createdAt: row.created_at,
+  }));
 }

@@ -232,18 +232,56 @@ describe("categorySubscriptionService", () => {
     expect(mockQuery).not.toHaveBeenCalled();
   });
 
-  it("should return only the requested user's category IDs", async () => {
+  it("should return only the requested user's category subscriptions", async () => {
+    const createdAt1 = new Date("2026-09-24T10:00:00.000Z");
+    const createdAt2 = new Date("2026-09-24T10:01:00.000Z");
+    const createdAt3 = new Date("2026-09-24T10:02:00.000Z");
+
     mockQuery.mockResolvedValueOnce({
       rows: [
-        { category_id: "10" },
-        { category_id: "20" },
-        { category_id: "30" },
+        {
+          id: "subscription-001",
+          user_id: "159",
+          category_id: "10",
+          created_at: createdAt1,
+        },
+        {
+          id: "subscription-002",
+          user_id: "159",
+          category_id: "20",
+          created_at: createdAt2,
+        },
+        {
+          id: "subscription-003",
+          user_id: "159",
+          category_id: "30",
+          created_at: createdAt3,
+        },
       ],
     });
 
     const result = await getUserCategorySubscriptions("159");
 
-    expect(result).toEqual(["10", "20", "30"]);
+    expect(result).toEqual([
+      {
+        id: "subscription-001",
+        userId: "159",
+        categoryId: "10",
+        createdAt: createdAt1,
+      },
+      {
+        id: "subscription-002",
+        userId: "159",
+        categoryId: "20",
+        createdAt: createdAt2,
+      },
+      {
+        id: "subscription-003",
+        userId: "159",
+        categoryId: "30",
+        createdAt: createdAt3,
+      },
+    ]);
 
     expect(mockQuery).toHaveBeenCalledTimes(1);
 
@@ -257,13 +295,29 @@ describe("categorySubscriptionService", () => {
   });
 
   it("should use the authenticated userId for user isolation", async () => {
+    const createdAt = new Date("2026-09-24T10:00:00.000Z");
+
     mockQuery.mockResolvedValueOnce({
-      rows: [{ category_id: "50" }],
+      rows: [
+        {
+          id: "subscription-050",
+          user_id: "159",
+          category_id: "50",
+          created_at: createdAt,
+        },
+      ],
     });
 
     const result = await getUserCategorySubscriptions("159");
 
-    expect(result).toEqual(["50"]);
+    expect(result).toEqual([
+      {
+        id: "subscription-050",
+        userId: "159",
+        categoryId: "50",
+        createdAt,
+      },
+    ]);
 
     expect(mockQuery).toHaveBeenCalledTimes(1);
 

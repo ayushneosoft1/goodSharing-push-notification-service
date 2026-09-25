@@ -42,7 +42,12 @@ describe("Milestone 3 - Authentication and Ownership", () => {
         .send({
           query: `
             query {
-              userCategorySubscriptions
+              userCategorySubscriptions {
+                id
+                userId
+                categoryId
+                createdAt
+              }
             }
           `,
         });
@@ -54,8 +59,24 @@ describe("Milestone 3 - Authentication and Ownership", () => {
     });
 
     it("should use authenticated x-user.id", async () => {
+      const createdAt1 = new Date("2026-09-24T10:00:00.000Z");
+      const createdAt2 = new Date("2026-09-24T10:01:00.000Z");
+
       mockQuery.mockResolvedValueOnce({
-        rows: [{ category_id: "10" }, { category_id: "20" }],
+        rows: [
+          {
+            id: "subscription-010",
+            user_id: "159",
+            category_id: "10",
+            created_at: createdAt1,
+          },
+          {
+            id: "subscription-020",
+            user_id: "159",
+            category_id: "20",
+            created_at: createdAt2,
+          },
+        ],
       });
 
       const response = await request(app)
@@ -64,7 +85,12 @@ describe("Milestone 3 - Authentication and Ownership", () => {
         .send({
           query: `
             query {
-              userCategorySubscriptions
+              userCategorySubscriptions {
+                id
+                userId
+                categoryId
+                createdAt
+              }
             }
           `,
         });
@@ -72,8 +98,18 @@ describe("Milestone 3 - Authentication and Ownership", () => {
       expect(response.body.errors).toBeUndefined();
 
       expect(response.body.data.userCategorySubscriptions).toEqual([
-        "10",
-        "20",
+        {
+          id: "subscription-010",
+          userId: "159",
+          categoryId: "10",
+          createdAt: String(createdAt1.getTime()),
+        },
+        {
+          id: "subscription-020",
+          userId: "159",
+          categoryId: "20",
+          createdAt: String(createdAt2.getTime()),
+        },
       ]);
 
       expect(mockQuery).toHaveBeenCalledTimes(1);
