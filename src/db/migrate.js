@@ -29,7 +29,7 @@ try {
 
   console.log("All migrations completed successfully.");
 } catch (error) {
-  console.error("Migration failed:", error);
+  console.error("Migration failed");
   process.exitCode = 1;
 } finally {
   await pool.end();

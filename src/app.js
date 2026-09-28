@@ -21,6 +21,7 @@ export async function createApp() {
 
   const apolloServer = new ApolloServer({
     schema,
+    includeStacktraceInErrorResponses: false,
   });
 
   await apolloServer.start();
@@ -35,7 +36,7 @@ export async function createApp() {
         status: "ok",
       });
     } catch (error) {
-      console.error("Health check failed:", error.message);
+      console.error("Health check failed");
 
       res.status(503).json({
         status: "unhealthy",
