@@ -1,5 +1,20 @@
 import { pool } from "../db/pool.js";
 
+async function validateCategory(categoryId) {
+  const { rows } = await pool.query(
+    `
+      SELECT id
+      FROM categories
+      WHERE id = $1
+    `,
+    [categoryId],
+  );
+
+  if (rows.length === 0) {
+    throw new Error("Invalid category");
+  }
+}
+
 export async function subscribeCategory({ userId, categoryId }) {
   if (!userId) {
     throw new Error("userId is required");
@@ -8,6 +23,8 @@ export async function subscribeCategory({ userId, categoryId }) {
   if (!categoryId) {
     throw new Error("categoryId is required");
   }
+
+  await validateCategory(categoryId);
 
   const query = `
     INSERT INTO category_subscriptions (
@@ -40,6 +57,8 @@ export async function unsubscribeCategory({ userId, categoryId }) {
     throw new Error("categoryId is required");
   }
 
+  await validateCategory(categoryId);
+
   const query = `
     DELETE FROM category_subscriptions
     WHERE user_id = $1
@@ -64,7 +83,11 @@ export async function getUserCategorySubscriptions(userId) {
   }
 
   const query = `
-    SELECT category_id
+    SELECT
+      id,
+      user_id,
+      category_id,
+      created_at
     FROM category_subscriptions
     WHERE user_id = $1
     ORDER BY category_id;
@@ -74,5 +97,10 @@ export async function getUserCategorySubscriptions(userId) {
 
   const { rows } = await pool.query(query, values);
 
-  return rows.map((row) => row.category_id);
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    categoryId: row.category_id,
+    createdAt: row.created_at,
+  }));
 }

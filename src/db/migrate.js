@@ -13,6 +13,8 @@ const migrationFiles = [
   "001_create_device_registrations.sql",
   "002_create_category_subscriptions.sql",
   "003_create_in_app_notifications.sql",
+  "004_create_categories.sql",
+  "005_add_category_subscription_fk.sql",
 ];
 
 try {
@@ -29,7 +31,7 @@ try {
 
   console.log("All migrations completed successfully.");
 } catch (error) {
-  console.error("Migration failed:", error);
+  console.error("Migration failed");
   process.exitCode = 1;
 } finally {
   await pool.end();

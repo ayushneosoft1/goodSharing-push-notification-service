@@ -27,6 +27,13 @@ export const typeDefs = gql`
     readAt: String
   }
 
+  type CategorySubscription {
+    id: ID!
+    userId: ID!
+    categoryId: ID!
+    createdAt: String!
+  }
+
   input RegisterDeviceInput {
     deviceId: String!
     fcmToken: String!
@@ -53,7 +60,7 @@ export const typeDefs = gql`
   type Query {
     health: Health!
 
-    userCategorySubscriptions: [ID!]!
+    userCategorySubscriptions: [CategorySubscription!]!
 
     notifications(limit: Int, offset: Int): [InAppNotification!]!
 
