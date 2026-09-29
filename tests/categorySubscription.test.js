@@ -17,7 +17,7 @@ describe("categorySubscriptionService", () => {
   });
 
   it("should reject when userId is missing", async () => {
-    await expect(subscribeCategory({ categoryId: "10" })).rejects.toThrow(
+    await expect(subscribeCategory({ categoryId: "1" })).rejects.toThrow(
       "userId is required",
     );
 
@@ -35,42 +35,46 @@ describe("categorySubscriptionService", () => {
   it("should subscribe a user to a category", async () => {
     const now = new Date();
 
-    mockQuery.mockResolvedValueOnce({
-      rows: [
-        {
-          id: "subscription-001",
-          user_id: "159",
-          category_id: "10",
-          created_at: now,
-        },
-      ],
-    });
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: "1" }],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: "subscription-001",
+            user_id: "159",
+            category_id: "1",
+            created_at: now,
+          },
+        ],
+      });
 
     const result = await subscribeCategory({
       userId: "159",
-      categoryId: "10",
+      categoryId: "1",
     });
 
     expect(result).toEqual({
       id: "subscription-001",
       user_id: "159",
-      category_id: "10",
+      category_id: "1",
       created_at: now,
     });
 
-    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenCalledTimes(2);
 
-    expect(mockQuery.mock.calls[0][1]).toEqual(["159", "10"]);
+    expect(mockQuery.mock.calls[1][1]).toEqual(["159", "1"]);
 
-    expect(mockQuery.mock.calls[0][0]).toContain(
+    expect(mockQuery.mock.calls[1][0]).toContain(
       "INSERT INTO category_subscriptions",
     );
 
-    expect(mockQuery.mock.calls[0][0]).toContain(
+    expect(mockQuery.mock.calls[1][0]).toContain(
       "ON CONFLICT (user_id, category_id)",
     );
 
-    expect(mockQuery.mock.calls[0][0]).toContain("DO NOTHING");
+    expect(mockQuery.mock.calls[1][0]).toContain("DO NOTHING");
   });
 
   it("should be idempotent when subscribing to the same category twice", async () => {
@@ -78,14 +82,20 @@ describe("categorySubscriptionService", () => {
 
     mockQuery
       .mockResolvedValueOnce({
+        rows: [{ id: "1" }],
+      })
+      .mockResolvedValueOnce({
         rows: [
           {
             id: "subscription-001",
             user_id: "159",
-            category_id: "10",
+            category_id: "1",
             created_at: now,
           },
         ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ id: "1" }],
       })
       .mockResolvedValueOnce({
         rows: [],
@@ -93,24 +103,24 @@ describe("categorySubscriptionService", () => {
 
     const firstResult = await subscribeCategory({
       userId: "159",
-      categoryId: "10",
+      categoryId: "1",
     });
 
     const secondResult = await subscribeCategory({
       userId: "159",
-      categoryId: "10",
+      categoryId: "1",
     });
 
     expect(firstResult).not.toBeNull();
     expect(secondResult).toBeNull();
 
-    expect(mockQuery).toHaveBeenCalledTimes(2);
+    expect(mockQuery).toHaveBeenCalledTimes(4);
 
-    expect(mockQuery.mock.calls[0][1]).toEqual(["159", "10"]);
+    expect(mockQuery.mock.calls[1][1]).toEqual(["159", "1"]);
 
-    expect(mockQuery.mock.calls[1][1]).toEqual(["159", "10"]);
+    expect(mockQuery.mock.calls[3][1]).toEqual(["159", "1"]);
 
-    expect(mockQuery.mock.calls[1][0]).toContain(
+    expect(mockQuery.mock.calls[3][0]).toContain(
       "ON CONFLICT (user_id, category_id)",
     );
   });
@@ -120,21 +130,27 @@ describe("categorySubscriptionService", () => {
 
     mockQuery
       .mockResolvedValueOnce({
+        rows: [{ id: "1" }],
+      })
+      .mockResolvedValueOnce({
         rows: [
           {
             id: "subscription-001",
             user_id: "159",
-            category_id: "10",
+            category_id: "1",
             created_at: now,
           },
         ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ id: "2" }],
       })
       .mockResolvedValueOnce({
         rows: [
           {
             id: "subscription-002",
             user_id: "159",
-            category_id: "20",
+            category_id: "2",
             created_at: now,
           },
         ],
@@ -142,23 +158,23 @@ describe("categorySubscriptionService", () => {
 
     await subscribeCategory({
       userId: "159",
-      categoryId: "10",
+      categoryId: "1",
     });
 
     await subscribeCategory({
       userId: "159",
-      categoryId: "20",
+      categoryId: "2",
     });
 
-    expect(mockQuery).toHaveBeenCalledTimes(2);
+    expect(mockQuery).toHaveBeenCalledTimes(4);
 
-    expect(mockQuery.mock.calls[0][1]).toEqual(["159", "10"]);
+    expect(mockQuery.mock.calls[1][1]).toEqual(["159", "1"]);
 
-    expect(mockQuery.mock.calls[1][1]).toEqual(["159", "20"]);
+    expect(mockQuery.mock.calls[3][1]).toEqual(["159", "2"]);
   });
 
   it("should reject unsubscribe when userId is missing", async () => {
-    await expect(unsubscribeCategory({ categoryId: "10" })).rejects.toThrow(
+    await expect(unsubscribeCategory({ categoryId: "1" })).rejects.toThrow(
       "userId is required",
     );
 
@@ -176,52 +192,90 @@ describe("categorySubscriptionService", () => {
   it("should unsubscribe the correct user and category", async () => {
     const now = new Date();
 
-    mockQuery.mockResolvedValueOnce({
-      rows: [
-        {
-          id: "subscription-001",
-          user_id: "159",
-          category_id: "10",
-          created_at: now,
-        },
-      ],
-    });
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: "1" }],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: "subscription-001",
+            user_id: "159",
+            category_id: "1",
+            created_at: now,
+          },
+        ],
+      });
 
     const result = await unsubscribeCategory({
       userId: "159",
-      categoryId: "10",
+      categoryId: "1",
     });
 
     expect(result).toBe(true);
 
-    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenCalledTimes(2);
 
-    expect(mockQuery.mock.calls[0][1]).toEqual(["159", "10"]);
+    expect(mockQuery.mock.calls[1][1]).toEqual(["159", "1"]);
 
-    expect(mockQuery.mock.calls[0][0]).toContain(
+    expect(mockQuery.mock.calls[1][0]).toContain(
       "DELETE FROM category_subscriptions",
     );
 
-    expect(mockQuery.mock.calls[0][0]).toContain("WHERE user_id = $1");
+    expect(mockQuery.mock.calls[1][0]).toContain("WHERE user_id = $1");
 
-    expect(mockQuery.mock.calls[0][0]).toContain("AND category_id = $2");
+    expect(mockQuery.mock.calls[1][0]).toContain("AND category_id = $2");
   });
 
   it("should return false when unsubscribing a non-existing subscription", async () => {
-    mockQuery.mockResolvedValueOnce({
-      rows: [],
-    });
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: "4" }],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+      });
 
     const result = await unsubscribeCategory({
       userId: "159",
-      categoryId: "999",
+      categoryId: "4",
     });
 
     expect(result).toBe(false);
 
-    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenCalledTimes(2);
 
-    expect(mockQuery.mock.calls[0][1]).toEqual(["159", "999"]);
+    expect(mockQuery.mock.calls[1][1]).toEqual(["159", "4"]);
+  });
+
+  it("should reject subscribe when category does not exist", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [],
+    });
+
+    await expect(
+      subscribeCategory({
+        userId: "159",
+        categoryId: "999",
+      }),
+    ).rejects.toThrow("Invalid category");
+
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it("should reject unsubscribe when category does not exist", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [],
+    });
+
+    await expect(
+      unsubscribeCategory({
+        userId: "159",
+        categoryId: "999",
+      }),
+    ).rejects.toThrow("Invalid category");
+
+    expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
   it("should reject getUserCategorySubscriptions when userId is missing", async () => {
@@ -242,19 +296,19 @@ describe("categorySubscriptionService", () => {
         {
           id: "subscription-001",
           user_id: "159",
-          category_id: "10",
+          category_id: "1",
           created_at: createdAt1,
         },
         {
           id: "subscription-002",
           user_id: "159",
-          category_id: "20",
+          category_id: "2",
           created_at: createdAt2,
         },
         {
           id: "subscription-003",
           user_id: "159",
-          category_id: "30",
+          category_id: "3",
           created_at: createdAt3,
         },
       ],
@@ -266,19 +320,19 @@ describe("categorySubscriptionService", () => {
       {
         id: "subscription-001",
         userId: "159",
-        categoryId: "10",
+        categoryId: "1",
         createdAt: createdAt1,
       },
       {
         id: "subscription-002",
         userId: "159",
-        categoryId: "20",
+        categoryId: "2",
         createdAt: createdAt2,
       },
       {
         id: "subscription-003",
         userId: "159",
-        categoryId: "30",
+        categoryId: "3",
         createdAt: createdAt3,
       },
     ]);
@@ -302,7 +356,7 @@ describe("categorySubscriptionService", () => {
         {
           id: "subscription-050",
           user_id: "159",
-          category_id: "50",
+          category_id: "4",
           created_at: createdAt,
         },
       ],
@@ -314,7 +368,7 @@ describe("categorySubscriptionService", () => {
       {
         id: "subscription-050",
         userId: "159",
-        categoryId: "50",
+        categoryId: "4",
         createdAt,
       },
     ]);

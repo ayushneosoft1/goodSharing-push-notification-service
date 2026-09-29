@@ -249,7 +249,7 @@ describe("Milestone 3 - Authentication and Ownership", () => {
         .send({
           query: `
             mutation {
-              subscribeCategory(categoryId: "10")
+              subscribeCategory(categoryId: "1")
             }
           `,
         });
@@ -261,16 +261,20 @@ describe("Milestone 3 - Authentication and Ownership", () => {
     });
 
     it("should subscribe category using authenticated user id", async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: "subscription-001",
-            user_id: "159",
-            category_id: "10",
-            created_at: new Date(),
-          },
-        ],
-      });
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ id: "1" }],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: "subscription-001",
+              user_id: "159",
+              category_id: "1",
+              created_at: new Date(),
+            },
+          ],
+        });
 
       const response = await request(app)
         .post("/graphql")
@@ -278,7 +282,7 @@ describe("Milestone 3 - Authentication and Ownership", () => {
         .send({
           query: `
             mutation {
-              subscribeCategory(categoryId: "10")
+              subscribeCategory(categoryId: "1")
             }
           `,
         });
@@ -287,8 +291,8 @@ describe("Milestone 3 - Authentication and Ownership", () => {
 
       expect(response.body.data.subscribeCategory).toBe(true);
 
-      expect(mockQuery).toHaveBeenCalledTimes(1);
-      expect(mockQuery.mock.calls[0][1]).toEqual(["159", "10"]);
+      expect(mockQuery).toHaveBeenCalledTimes(2);
+      expect(mockQuery.mock.calls[1][1]).toEqual(["159", "1"]);
     });
   });
 
@@ -311,9 +315,13 @@ describe("Milestone 3 - Authentication and Ownership", () => {
     });
 
     it("should unsubscribe category using authenticated user id", async () => {
-      mockQuery.mockResolvedValueOnce({
-        rows: [],
-      });
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ id: "1" }],
+        })
+        .mockResolvedValueOnce({
+          rows: [],
+        });
 
       const response = await request(app)
         .post("/graphql")
@@ -321,7 +329,7 @@ describe("Milestone 3 - Authentication and Ownership", () => {
         .send({
           query: `
             mutation {
-              unsubscribeCategory(categoryId: "10")
+              unsubscribeCategory(categoryId: "1")
             }
           `,
         });
@@ -330,8 +338,8 @@ describe("Milestone 3 - Authentication and Ownership", () => {
 
       expect(response.body.data.unsubscribeCategory).toBe(true);
 
-      expect(mockQuery).toHaveBeenCalledTimes(1);
-      expect(mockQuery.mock.calls[0][1]).toEqual(["159", "10"]);
+      expect(mockQuery).toHaveBeenCalledTimes(2);
+      expect(mockQuery.mock.calls[1][1]).toEqual(["159", "1"]);
     });
   });
 

@@ -1,5 +1,20 @@
 import { pool } from "../db/pool.js";
 
+async function validateCategory(categoryId) {
+  const { rows } = await pool.query(
+    `
+      SELECT id
+      FROM categories
+      WHERE id = $1
+    `,
+    [categoryId],
+  );
+
+  if (rows.length === 0) {
+    throw new Error("Invalid category");
+  }
+}
+
 export async function subscribeCategory({ userId, categoryId }) {
   if (!userId) {
     throw new Error("userId is required");
@@ -8,6 +23,8 @@ export async function subscribeCategory({ userId, categoryId }) {
   if (!categoryId) {
     throw new Error("categoryId is required");
   }
+
+  await validateCategory(categoryId);
 
   const query = `
     INSERT INTO category_subscriptions (
@@ -39,6 +56,8 @@ export async function unsubscribeCategory({ userId, categoryId }) {
   if (!categoryId) {
     throw new Error("categoryId is required");
   }
+
+  await validateCategory(categoryId);
 
   const query = `
     DELETE FROM category_subscriptions
