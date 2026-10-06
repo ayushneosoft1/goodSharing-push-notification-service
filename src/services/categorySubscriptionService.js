@@ -104,3 +104,26 @@ export async function getUserCategorySubscriptions(userId) {
     createdAt: row.created_at,
   }));
 }
+
+export async function getCategorySubscribers({ categoryId, excludeUserId }) {
+  if (!categoryId) {
+    throw new Error("categoryId is required");
+  }
+
+  if (!excludeUserId) {
+    throw new Error("excludeUserId is required");
+  }
+
+  const query = `
+    SELECT DISTINCT user_id
+    FROM category_subscriptions
+    WHERE category_id = $1
+      AND user_id <> $2
+    ORDER BY user_id;
+  `;
+
+  const values = [categoryId, excludeUserId];
+  const { rows } = await pool.query(query, values);
+
+  return rows.map((row) => String(row.user_id));
+}

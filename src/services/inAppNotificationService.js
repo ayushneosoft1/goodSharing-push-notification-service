@@ -98,3 +98,50 @@ export async function markAllNotificationsRead(userId) {
 
   return true;
 }
+
+export async function createInAppNotification({
+  userId,
+  title,
+  message,
+  postId,
+}) {
+  if (!userId) {
+    throw new Error("userId is required");
+  }
+
+  if (!title) {
+    throw new Error("title is required");
+  }
+
+  if (!message) {
+    throw new Error("message is required");
+  }
+
+  if (!postId) {
+    throw new Error("postId is required");
+  }
+
+  const query = `
+    INSERT INTO in_app_notifications (
+      user_id,
+      title,
+      message,
+      post_id
+    )
+    VALUES ($1, $2, $3, $4)
+    RETURNING
+      id,
+      user_id,
+      title,
+      message,
+      post_id,
+      is_read,
+      created_at,
+      read_at;
+  `;
+
+  const values = [userId, title, message, postId];
+  const { rows } = await pool.query(query, values);
+
+  return rows[0];
+}
