@@ -103,9 +103,17 @@ export async function sendPushNotificationToTokens({
 
 export function isInvalidFcmTokenError(error) {
   const code = error?.code;
+  const message = String(error?.message || "").toLowerCase();
 
-  return (
+  if (
     code === "messaging/registration-token-not-registered" ||
     code === "messaging/invalid-registration-token"
+  ) {
+    return true;
+  }
+
+  return (
+    code === "messaging/invalid-argument" &&
+    message.includes("registration token is not a valid fcm registration token")
   );
 }

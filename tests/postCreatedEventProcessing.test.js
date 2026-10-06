@@ -84,7 +84,6 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
     expect(result.pushSuccessCount).toBe(0);
     expect(result.pushFailureCount).toBe(0);
   });
-});
 
   it("should create one in-app notification and push to multiple active Android devices", async () => {
     vi.clearAllMocks();
@@ -334,4 +333,5 @@ it("should create an in-app notification even when the subscriber has no active 
   expect(result.inAppCreatedCount).toBe(1);
   expect(result.pushSuccessCount).toBe(0);
   expect(result.pushFailureCount).toBe(0);
+});
 });

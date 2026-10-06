@@ -60,6 +60,7 @@ export async function processPostCreatedEvent(event) {
   let inAppCreatedCount = 0;
   let pushSuccessCount = 0;
   let pushFailureCount = 0;
+  const pushFailureCodes = {};
 
   for (const userId of recipientIds) {
     try {
@@ -124,6 +125,11 @@ export async function processPostCreatedEvent(event) {
         const cleanupPromises = [];
 
         response.responses.forEach((result, index) => {
+          if (!result.success) {
+            const code = result.error?.code || "unknown";
+            pushFailureCodes[code] = (pushFailureCodes[code] || 0) + 1;
+          }
+
           if (!result.success && isInvalidFcmTokenError(result.error)) {
             cleanupPromises.push(
               deactivateDeviceRegistrationByToken(batch[index])
@@ -135,11 +141,15 @@ export async function processPostCreatedEvent(event) {
       } catch (error) {
         pushFailureCount += batch.length;
 
+        const code = error?.code || "unknown";
+        pushFailureCodes[code] = (pushFailureCodes[code] || 0) + batch.length;
+
         console.error("POST_CREATED_PUSH_FAILED", {
           eventId: post.eventId,
           postId: post.postId,
           userId,
           error: error?.message,
+          code,
         });
       }
     }
@@ -152,6 +162,7 @@ export async function processPostCreatedEvent(event) {
     inAppCreatedCount,
     pushSuccessCount,
     pushFailureCount,
+    pushFailureCodes,
   });
 
   return {
