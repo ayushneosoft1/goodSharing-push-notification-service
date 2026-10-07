@@ -26,50 +26,66 @@ export async function registerDevice({
     );
   }
 
-  const query = `
-    WITH previous_owner AS (
-      UPDATE device_registrations
-      SET
-        is_active = FALSE,
-        updated_at = NOW()
-      WHERE fcm_token = $3
-        AND is_active = TRUE
-        AND NOT (user_id = $1 AND device_id = $2)
-    )
-    INSERT INTO device_registrations (
-      user_id,
-      device_id,
-      fcm_token,
-      platform,
-      is_active,
-      updated_at,
-      last_seen_at
-    )
-    VALUES ($1, $2, $3, $4, TRUE, NOW(), NOW())
-    ON CONFLICT (user_id, device_id)
-    DO UPDATE SET
-      fcm_token = EXCLUDED.fcm_token,
-      platform = EXCLUDED.platform,
-      is_active = TRUE,
-      updated_at = NOW(),
-      last_seen_at = NOW()
-    RETURNING
-      id,
-      user_id,
-      device_id,
-      fcm_token,
-      platform,
-      is_active,
-      created_at,
-      updated_at,
-      last_seen_at;
-  `;
+  const client = await pool.connect();
 
-  const values = [userId, deviceId, fcmToken, platform];
+  try {
+    await client.query("BEGIN");
 
-  const { rows } = await pool.query(query, values);
+    await client.query(
+      `
+        UPDATE device_registrations
+        SET
+          is_active = FALSE,
+          updated_at = NOW()
+        WHERE fcm_token = $1
+          AND is_active = TRUE
+          AND NOT (user_id = $2 AND device_id = $3);
+      `,
+      [fcmToken, userId, deviceId],
+    );
 
-  return rows[0];
+    const { rows } = await client.query(
+      `
+        INSERT INTO device_registrations (
+          user_id,
+          device_id,
+          fcm_token,
+          platform,
+          is_active,
+          updated_at,
+          last_seen_at
+        )
+        VALUES ($1, $2, $3, $4, TRUE, NOW(), NOW())
+        ON CONFLICT (user_id, device_id)
+        DO UPDATE SET
+          fcm_token = EXCLUDED.fcm_token,
+          platform = EXCLUDED.platform,
+          is_active = TRUE,
+          updated_at = NOW(),
+          last_seen_at = NOW()
+        RETURNING
+          id,
+          user_id,
+          device_id,
+          fcm_token,
+          platform,
+          is_active,
+          created_at,
+          updated_at,
+          last_seen_at;
+      `,
+      [userId, deviceId, fcmToken, platform],
+    );
+
+    await client.query("COMMIT");
+
+    return rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 export async function unregisterDevice({ userId, deviceId }) {
   if (!userId) {

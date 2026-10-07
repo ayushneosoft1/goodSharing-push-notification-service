@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockQuery = vi.fn();
+const mockClientQuery = vi.fn();
+const mockRelease = vi.fn();
+const mockConnect = vi.fn();
 
 vi.mock("../src/db/pool.js", () => ({
   pool: {
     query: mockQuery,
+    connect: mockConnect,
   },
 }));
 
@@ -17,6 +21,30 @@ const {
 describe("deviceRegistrationService", () => {
   beforeEach(() => {
     mockQuery.mockReset();
+    mockClientQuery.mockReset();
+    mockRelease.mockReset();
+    mockConnect.mockReset();
+
+    mockConnect.mockResolvedValue({
+      query: mockClientQuery,
+      release: mockRelease,
+    });
+
+    mockClientQuery.mockImplementation(async (sql) => {
+      if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") {
+        return { rows: [] };
+      }
+
+      if (sql.includes("UPDATE device_registrations")) {
+        return { rows: [] };
+      }
+
+      if (sql.includes("INSERT INTO device_registrations")) {
+        return await mockQuery();
+      }
+
+      return { rows: [] };
+    });
   });
 
   // ============================================================
@@ -223,15 +251,16 @@ describe("deviceRegistrationService", () => {
       expect(secondResult.device_id).toBe("device-001");
 
       expect(mockQuery).toHaveBeenCalledTimes(2);
+      expect(mockClientQuery).toHaveBeenCalledTimes(8);
 
-      expect(mockQuery.mock.calls[0][1]).toEqual([
+      expect(mockClientQuery.mock.calls[2][1]).toEqual([
         "159",
         "device-001",
         "token-001",
         "android",
       ]);
 
-      expect(mockQuery.mock.calls[1][1]).toEqual([
+      expect(mockClientQuery.mock.calls[6][1]).toEqual([
         "159",
         "device-001",
         "token-001",
@@ -290,8 +319,9 @@ describe("deviceRegistrationService", () => {
       expect(secondResult.fcm_token).toBe("token-new");
 
       expect(mockQuery).toHaveBeenCalledTimes(2);
+      expect(mockClientQuery).toHaveBeenCalledTimes(8);
 
-      expect(mockQuery.mock.calls[1][1]).toEqual([
+      expect(mockClientQuery.mock.calls[6][1]).toEqual([
         "159",
         "device-001",
         "token-new",
