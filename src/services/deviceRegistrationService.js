@@ -27,6 +27,15 @@ export async function registerDevice({
   }
 
   const query = `
+    WITH previous_owner AS (
+      UPDATE device_registrations
+      SET
+        is_active = FALSE,
+        updated_at = NOW()
+      WHERE fcm_token = $3
+        AND is_active = TRUE
+        AND NOT (user_id = $1 AND device_id = $2)
+    )
     INSERT INTO device_registrations (
       user_id,
       device_id,
@@ -62,7 +71,6 @@ export async function registerDevice({
 
   return rows[0];
 }
-
 export async function unregisterDevice({ userId, deviceId }) {
   if (!userId) {
     throw new Error("userId is required");
