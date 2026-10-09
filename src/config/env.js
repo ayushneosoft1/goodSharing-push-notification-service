@@ -6,6 +6,7 @@ const requiredEnv = [
   "FIREBASE_PROJECT_ID",
   "FIREBASE_CLIENT_EMAIL",
   "FIREBASE_PRIVATE_KEY",
+  "INTERNAL_EVENT_AUTH_TOKEN",
 ];
 
 for (const key of requiredEnv) {
@@ -23,4 +24,6 @@ export const env = {
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     privateKey: process.env.FIREBASE_PRIVATE_KEY,
   },
+
+  internalEventAuthToken: process.env.INTERNAL_EVENT_AUTH_TOKEN,
 };

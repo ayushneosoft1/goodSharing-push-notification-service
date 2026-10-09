@@ -1,4 +1,5 @@
 import express from "express";
+import crypto from "crypto";
 import cors from "cors";
 import { ApolloServer } from "@apollo/server";
 import { buildSubgraphSchema } from "@apollo/subgraph";
@@ -9,6 +10,8 @@ import { resolvers } from "./graphql/resolvers.js";
 import { checkDatabaseConnection } from "./db/pool.js";
 
 import { getFirebaseApp } from "./config/firebase.js";
+import { env } from "./config/env.js";
+import { processPostCreatedEvent } from "./services/postCreatedEventService.js";
 
 export async function createApp() {
   getFirebaseApp();
@@ -27,6 +30,44 @@ export async function createApp() {
   await apolloServer.start();
 
   app.use(cors());
+
+  app.post("/internal/events/post-created", express.json(), async (req, res) => {
+    const providedToken = req.headers["x-internal-event-token"];
+
+    if (
+      typeof providedToken !== "string" ||
+      typeof env.internalEventAuthToken !== "string"
+    ) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const provided = Buffer.from(providedToken);
+    const expected = Buffer.from(env.internalEventAuthToken);
+
+    if (
+      provided.length !== expected.length ||
+      !crypto.timingSafeEqual(provided, expected)
+    ) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const result = await processPostCreatedEvent(req.body);
+
+      return res.status(200).json({
+        success: true,
+        ...result,
+      });
+    } catch (error) {
+      console.error("POST_CREATED_EVENT_REJECTED", {
+        error: error?.message,
+      });
+
+      return res.status(400).json({
+        error: error?.message || "Invalid event",
+      });
+    }
+  });
 
   app.get("/health", async (_req, res) => {
     try {

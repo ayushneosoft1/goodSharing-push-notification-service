@@ -3,12 +3,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import request from "supertest";
 
 const mockQuery = vi.fn();
+const mockClientQuery = vi.fn();
+const mockRelease = vi.fn();
+const mockConnect = vi.fn();
 const mockCheckDatabaseConnection = vi.fn();
 const mockGetFirebaseApp = vi.fn();
 
 vi.mock("../src/db/pool.js", () => ({
   pool: {
     query: mockQuery,
+    connect: mockConnect,
   },
   checkDatabaseConnection: mockCheckDatabaseConnection,
 }));
@@ -24,6 +28,30 @@ describe("Authentication - x-user integration", () => {
 
   beforeEach(async () => {
     mockQuery.mockReset();
+    mockClientQuery.mockReset();
+    mockRelease.mockReset();
+    mockConnect.mockReset();
+
+    mockConnect.mockResolvedValue({
+      query: mockClientQuery,
+      release: mockRelease,
+    });
+
+    mockClientQuery.mockImplementation(async (sql) => {
+      if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") {
+        return { rows: [] };
+      }
+
+      if (sql.includes("UPDATE device_registrations")) {
+        return { rows: [] };
+      }
+
+      if (sql.includes("INSERT INTO device_registrations")) {
+        return await mockQuery();
+      }
+
+      return { rows: [] };
+    });
 
     mockCheckDatabaseConnection.mockResolvedValue(true);
 
@@ -95,8 +123,9 @@ describe("Authentication - x-user integration", () => {
     });
 
     expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockClientQuery).toHaveBeenCalledTimes(4);
 
-    expect(mockQuery.mock.calls[0][1]).toEqual([
+    expect(mockClientQuery.mock.calls[2][1]).toEqual([
       "159",
       "test-device",
       "test-token",
@@ -219,10 +248,11 @@ describe("Authentication - x-user integration", () => {
     expect(response.body.data.registerDevice.userId).toBe("159");
 
     expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockClientQuery).toHaveBeenCalledTimes(4);
 
-    expect(mockQuery.mock.calls[0][1][0]).toBe("159");
+    expect(mockClientQuery.mock.calls[2][1][0]).toBe("159");
 
-    expect(mockQuery.mock.calls[0][1][0]).not.toBe("999");
+    expect(mockClientQuery.mock.calls[2][1][0]).not.toBe("999");
   });
 
   // ==========================================================
