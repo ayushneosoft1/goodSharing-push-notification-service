@@ -15,9 +15,19 @@ for (const key of requiredEnv) {
   }
 }
 
+const databaseUrl = process.env.DATABASE_URL;
+const databaseSsl = process.env.DATABASE_SSL !== "false";
+const databaseHost = new URL(databaseUrl).hostname;
+const localDatabaseHosts = ["localhost", "127.0.0.1", "::1", "[::1]"];
+
+if (!databaseSsl && !localDatabaseHosts.includes(databaseHost)) {
+  throw new Error("DATABASE_SSL=false is only allowed for localhost database connections");
+}
+
 export const env = {
   port: Number(process.env.PORT),
-  databaseUrl: process.env.DATABASE_URL,
+  databaseUrl,
+  databaseSsl,
 
   firebase: {
     projectId: process.env.FIREBASE_PROJECT_ID,

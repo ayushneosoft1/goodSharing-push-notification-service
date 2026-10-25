@@ -104,44 +104,45 @@ export async function createInAppNotification({
   title,
   message,
   postId,
+  eventId,
 }) {
-  if (!userId) {
-    throw new Error("userId is required");
-  }
-
-  if (!title) {
-    throw new Error("title is required");
-  }
-
-  if (!message) {
-    throw new Error("message is required");
-  }
-
-  if (!postId) {
-    throw new Error("postId is required");
-  }
+  if (!userId) throw new Error("userId is required");
+  if (!title) throw new Error("title is required");
+  if (!message) throw new Error("message is required");
+  if (!postId) throw new Error("postId is required");
+  if (!eventId) throw new Error("eventId is required");
 
   const query = `
     INSERT INTO in_app_notifications (
-      user_id,
-      title,
-      message,
-      post_id
+      user_id, title, message, post_id, event_id
     )
-    VALUES ($1, $2, $3, $4)
+    VALUES ($1, $2, $3, $4, $5)
+    ON CONFLICT (user_id, event_id)
+      WHERE event_id IS NOT NULL
+    DO NOTHING
     RETURNING
-      id,
-      user_id,
-      title,
-      message,
-      post_id,
-      is_read,
-      created_at,
-      read_at;
+      id, user_id, title, message, post_id, event_id,
+      is_read, created_at, read_at;
   `;
 
-  const values = [userId, title, message, postId];
-  const { rows } = await pool.query(query, values);
+  const { rows } = await pool.query(query, [
+    userId, title, message, postId, eventId,
+  ]);
 
-  return rows[0];
+  if (rows[0]) return { ...rows[0], created: true };
+
+  const existing = await pool.query(
+    `SELECT id, user_id, title, message, post_id, event_id,
+            is_read, created_at, read_at
+     FROM in_app_notifications
+     WHERE user_id = $1 AND event_id = $2
+     LIMIT 1;`,
+    [userId, eventId],
+  );
+
+  if (!existing.rows[0]) {
+    throw new Error("Notification conflict occurred but existing row was not found");
+  }
+
+  return { ...existing.rows[0], created: false };
 }

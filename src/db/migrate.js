@@ -15,6 +15,8 @@ const migrationFiles = [
   "003_create_in_app_notifications.sql",
   "004_create_categories.sql",
   "005_add_category_subscription_fk.sql",
+  "006_create_processed_events_and_event_jobs.sql",
+  "007_add_notification_event_id.sql",
 ];
 
 try {

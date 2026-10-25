@@ -9,7 +9,7 @@ import {
   isInvalidFcmTokenError,
 } from "./firebaseMessagingService.js";
 
-function validatePostCreatedEvent(event) {
+export function validatePostCreatedEvent(event) {
   if (!event || typeof event !== "object") {
     throw new Error("Event payload is required");
   }
@@ -64,12 +64,17 @@ export async function processPostCreatedEvent(event) {
 
   for (const userId of recipientIds) {
     try {
-      await createInAppNotification({
+      const notification = await createInAppNotification({
         userId,
         title: "New Post",
         message: buildNotificationMessage(post.title),
         postId: post.postId,
+        eventId: post.eventId,
       });
+
+      if (!notification.created) {
+        continue;
+      }
 
       inAppCreatedCount += 1;
     } catch (error) {
