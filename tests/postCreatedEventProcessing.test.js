@@ -36,6 +36,7 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
       title: "New Post",
       message: "New post: Test Book",
       post_id: "123",
+      created: true,
     });
 
     getActiveDeviceRegistrations.mockResolvedValue([]);
@@ -45,6 +46,36 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
       failureCount: 0,
       responses: [],
     });
+  });
+
+  it("should skip device lookup and FCM when the notification already exists", async () => {
+    getCategorySubscribers.mockResolvedValue(["165"]);
+
+    createInAppNotification.mockResolvedValue({
+      id: "notification-1",
+      user_id: "165",
+      title: "New Post",
+      message: "New post: Test Book",
+      post_id: "123",
+      created: false,
+    });
+
+    const result = await processPostCreatedEvent({
+      eventId: "event-replay",
+      eventType: "PostCreated",
+      postId: "123",
+      authorId: "162",
+      categoryId: "1",
+      title: "Test Book",
+      createdAt: "2026-10-05T12:00:00.000Z",
+    });
+
+    expect(createInAppNotification).toHaveBeenCalledTimes(1);
+    expect(getActiveDeviceRegistrations).not.toHaveBeenCalled();
+    expect(sendPushNotificationToTokens).not.toHaveBeenCalled();
+    expect(result.inAppCreatedCount).toBe(0);
+    expect(result.pushSuccessCount).toBe(0);
+    expect(result.pushFailureCount).toBe(0);
   });
 
   it("should process only category subscribers and exclude the author", async () => {
@@ -70,6 +101,7 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
       title: "New Post",
       message: "New post: Test Book",
       postId: "123",
+      eventId: "event-2",
     });
 
     expect(createInAppNotification).toHaveBeenCalledWith({
@@ -77,6 +109,7 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
       title: "New Post",
       message: "New post: Test Book",
       postId: "123",
+      eventId: "event-2",
     });
 
     expect(result.recipientCount).toBe(2);
@@ -134,6 +167,7 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
       title: "New Post",
       message: "New post: Second Book",
       postId: "124",
+      eventId: "event-3",
     });
 
     expect(getActiveDeviceRegistrations).toHaveBeenCalledWith("165");
@@ -324,6 +358,7 @@ it("should create an in-app notification even when the subscriber has no active 
     title: "New Post",
     message: "New post: Fifth Book",
     postId: "127",
+    eventId: "event-6",
   });
 
   expect(getActiveDeviceRegistrations).toHaveBeenCalledWith("165");

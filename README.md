@@ -80,6 +80,8 @@ FIREBASE_PROJECT_ID=your-firebase-project-id
 FIREBASE_CLIENT_EMAIL=your-firebase-client-email
 
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PRIVATE KEY-----\n"
+
+INTERNAL_EVENT_AUTH_TOKEN=replace-with-a-secure-shared-secret
 ```
 
 ### Environment variable description
@@ -91,6 +93,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PR
 | `FIREBASE_PROJECT_ID`   | Yes      | Firebase project ID                         |
 | `FIREBASE_CLIENT_EMAIL` | Yes      | Firebase Admin service-account client email |
 | `FIREBASE_PRIVATE_KEY`  | Yes      | Firebase Admin service-account private key  |
+| `INTERNAL_EVENT_AUTH_TOKEN` | Yes | Shared secret for authenticating internal event requests; never commit its real value |
 
 ### Important security rules
 
@@ -148,30 +151,50 @@ The important database fields are:
 
 # Database Migration
 
-The migration file is:
+The migration runner applies SQL migrations in the order defined in `src/db/migrate.js`:
 
 ```text
 migrations/001_create_device_registrations.sql
+migrations/002_create_category_subscriptions.sql
+migrations/003_create_in_app_notifications.sql
+migrations/004_create_categories.sql
+migrations/005_add_category_subscription_fk.sql
+migrations/006_create_processed_events_and_event_jobs.sql
+migrations/007_add_notification_event_id.sql
 ```
 
-Run the migration using the project's migration script:
+**Migration safety:** The migration runner executes all seven SQL files
+on every invocation and does not maintain migration-history tracking.
+Before running migrations against an existing database, verify a backup,
+inspect the existing schema, confirm migration compatibility, and verify
+the target database. Do not run migrations blindly in production.
+
+After completing these safety checks, run migrations with:
 
 ```bash
-node src/db/migrate.js
+npm run migrate
 ```
 
-The migration creates the `device_registrations` table and its required indexes and constraints.
+Module 5 PR1 adds `processed_events` for event deduplication, `event_jobs` for persistent background processing, and `event_id` deduplication support for in-app notifications.
 
-After migration, verify the table from PostgreSQL.
+The `/internal/events/post-created` endpoint requires the `x-internal-event-token` header to match `INTERNAL_EVENT_AUTH_TOKEN`. It returns HTTP `202 Accepted` after persisting a new event and its job; a background worker processes the job.
 
-Example:
+A job is marked `completed` when event processing resolves successfully, even if the result reports one or more FCM delivery failures. This records completion of the processing attempt, not guaranteed delivery to every device. Per-device delivery attempts and retry handling are outside PR1 and belong to the next milestone step.
+
+
+Configure the same secure internal-event token in the communicating services. Use Kubernetes Secrets in deployment, and never commit or log the real secret.
+
+After migration, verify the Module 5 PR1 tables and notification event column:
 
 ```sql
-SELECT column_name, data_type
+SELECT table_name, column_name, data_type
 FROM information_schema.columns
 WHERE table_schema = 'public'
-  AND table_name = 'device_registrations'
-ORDER BY ordinal_position;
+  AND (
+    table_name IN ('processed_events', 'event_jobs')
+    OR (table_name = 'in_app_notifications' AND column_name = 'event_id')
+  )
+ORDER BY table_name, ordinal_position;
 ```
 
 Verify that `user_id` is:
@@ -180,14 +203,18 @@ Verify that `user_id` is:
 bigint
 ```
 
-Verify indexes:
+Verify PR1 indexes:
 
 ```sql
-SELECT
-    indexname,
-    indexdef
+SELECT tablename, indexname, indexdef
 FROM pg_indexes
-WHERE tablename = 'device_registrations';
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'processed_events',
+    'event_jobs',
+    'in_app_notifications'
+  )
+ORDER BY tablename, indexname;
 ```
 
 ---

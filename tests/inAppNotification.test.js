@@ -9,6 +9,7 @@ vi.mock("../src/db/pool.js", () => ({
 }));
 
 const {
+  createInAppNotification,
   getNotifications,
   getUnreadNotificationCount,
   markNotificationRead,
@@ -18,6 +19,48 @@ const {
 describe("inAppNotificationService", () => {
   beforeEach(() => {
     mockQuery.mockReset();
+  });
+
+  it("should return the existing notification when the event is a duplicate", async () => {
+    const existingNotification = {
+      id: "notification-001",
+      user_id: "165",
+      title: "New Post",
+      message: "New post: Test Book",
+      post_id: "123",
+      event_id: "event-2",
+      is_read: false,
+      created_at: new Date(),
+      read_at: null,
+    };
+
+    mockQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [existingNotification] });
+
+    const result = await createInAppNotification({
+      userId: "165",
+      title: "New Post",
+      message: "New post: Test Book",
+      postId: "123",
+      eventId: "event-2",
+    });
+
+    expect(result).toEqual({ ...existingNotification, created: false });
+    expect(mockQuery).toHaveBeenCalledTimes(2);
+    expect(mockQuery.mock.calls[0][0]).toContain("ON CONFLICT (user_id, event_id)");
+    expect(mockQuery.mock.calls[0][0]).toContain("DO NOTHING");
+    expect(mockQuery.mock.calls[0][1]).toEqual([
+      "165",
+      "New Post",
+      "New post: Test Book",
+      "123",
+      "event-2",
+    ]);
+    expect(mockQuery.mock.calls[1][0]).toContain(
+      "WHERE user_id = $1 AND event_id = $2",
+    );
+    expect(mockQuery.mock.calls[1][1]).toEqual(["165", "event-2"]);
   });
 
   it("should reject getNotifications when userId is missing", async () => {

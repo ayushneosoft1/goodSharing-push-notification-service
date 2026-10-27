@@ -11,7 +11,7 @@ import { checkDatabaseConnection } from "./db/pool.js";
 
 import { getFirebaseApp } from "./config/firebase.js";
 import { env } from "./config/env.js";
-import { processPostCreatedEvent } from "./services/postCreatedEventService.js";
+import { persistPostCreatedEvent } from "./services/eventPersistenceService.js";
 
 export async function createApp() {
   getFirebaseApp();
@@ -52,19 +52,33 @@ export async function createApp() {
     }
 
     try {
-      const result = await processPostCreatedEvent(req.body);
+      const result = await persistPostCreatedEvent(req.body);
 
-      return res.status(200).json({
-        success: true,
+      return res.status(202).json({
+        accepted: true,
         ...result,
       });
     } catch (error) {
-      console.error("POST_CREATED_EVENT_REJECTED", {
+      const validationMessages = [
+        "Event payload is required",
+        "Invalid eventType",
+        "eventId is required",
+        "postId is required",
+        "authorId is required",
+        "categoryId is required",
+        "title is required",
+        "createdAt is required",
+        "Invalid createdAt",
+      ];
+
+      const isValidationError = validationMessages.includes(error?.message);
+
+      console.error("POST_CREATED_EVENT_PERSISTENCE_FAILED", {
         error: error?.message,
       });
 
-      return res.status(400).json({
-        error: error?.message || "Invalid event",
+      return res.status(isValidationError ? 400 : 500).json({
+        error: isValidationError ? error.message : "Failed to persist event",
       });
     }
   });

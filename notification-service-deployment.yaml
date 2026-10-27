@@ -46,6 +46,12 @@ spec:
                   name: notification-service-secret
                   key: FIREBASE_PRIVATE_KEY
 
+            - name: INTERNAL_EVENT_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: notification-service-secret
+                  key: INTERNAL_EVENT_AUTH_TOKEN
+
 ---
 apiVersion: v1
 kind: Service
