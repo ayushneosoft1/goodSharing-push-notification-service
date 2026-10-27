@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-  "start": "node src/index.js",
-  "test": "vitest run",
-  "migrate": "node src/db/migrate.js"
-},
+    "start": "node src/index.js",
+    "test": "DOTENV_CONFIG_PATH=.env.test.local vitest run --no-file-parallelism",
+    "migrate": "node src/db/migrate.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

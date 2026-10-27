@@ -163,7 +163,13 @@ migrations/006_create_processed_events_and_event_jobs.sql
 migrations/007_add_notification_event_id.sql
 ```
 
-Run all migrations with:
+**Migration safety:** The migration runner executes all seven SQL files
+on every invocation and does not maintain migration-history tracking.
+Before running migrations against an existing database, verify a backup,
+inspect the existing schema, confirm migration compatibility, and verify
+the target database. Do not run migrations blindly in production.
+
+After completing these safety checks, run migrations with:
 
 ```bash
 npm run migrate

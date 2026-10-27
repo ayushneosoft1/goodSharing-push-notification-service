@@ -36,15 +36,22 @@ export async function processNextEventJob() {
 
     job = result.rows[0];
 
-    await client.query(
+    const claimed = await client.query(
       `UPDATE event_jobs
        SET status = 'processing',
            claimed_at = NOW(),
            updated_at = NOW(),
            last_error = NULL
-       WHERE id = $1`,
+       WHERE id = $1
+       RETURNING claimed_at::text AS claimed_at`,
       [job.id],
     );
+
+    if (claimed.rowCount !== 1) {
+      throw new Error("EVENT_JOB_CLAIM_LOST");
+    }
+
+    job.claimed_at = claimed.rows[0].claimed_at;
 
     await client.query("COMMIT");
   } catch (error) {
@@ -66,15 +73,21 @@ export async function processNextEventJob() {
     try {
       await client.query("BEGIN");
 
-      await client.query(
+      const completed = await client.query(
         `UPDATE event_jobs
          SET status = 'completed',
              completed_at = NOW(),
              updated_at = NOW(),
              last_error = NULL
-         WHERE id = $1`,
-        [job.id],
+         WHERE id = $1
+           AND status = 'processing'
+           AND claimed_at = $2::timestamptz`,
+        [job.id, job.claimed_at],
       );
+
+      if (completed.rowCount !== 1) {
+        throw new Error("EVENT_JOB_CLAIM_LOST");
+      }
 
       await client.query(
         `UPDATE processed_events
@@ -103,10 +116,13 @@ export async function processNextEventJob() {
          SET status = 'failed',
              updated_at = NOW(),
              last_error = $2
-         WHERE id = $1`,
+         WHERE id = $1
+           AND status = 'processing'
+           AND claimed_at = $3::timestamptz`,
         [
           job.id,
           String(error?.message || "Unknown processing error").slice(0, 2000),
+          job.claimed_at,
         ],
       );
     } catch {

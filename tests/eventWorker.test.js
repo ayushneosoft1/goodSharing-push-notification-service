@@ -92,7 +92,7 @@ describe("Module 5 - Persistent event worker", () => {
     mockClientQuery
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // BEGIN
       .mockResolvedValueOnce({ rows: [job], rowCount: 1 }) // SELECT
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // mark processing
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ claimed_at: '2026-10-26 11:23:18.367937+00' }] }) // mark processing
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // claim COMMIT
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // completion BEGIN
       .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // mark completed
@@ -124,7 +124,7 @@ describe("Module 5 - Persistent event worker", () => {
     mockClientQuery
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] })
       .mockResolvedValueOnce({ rows: [job], rowCount: 1 })
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ claimed_at: '2026-10-26 11:23:18.367937+00' }] })
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] })
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] })
       .mockResolvedValueOnce({ rowCount: 1, rows: [] })
@@ -158,7 +158,7 @@ describe("Module 5 - Persistent event worker", () => {
     mockClientQuery
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // BEGIN
       .mockResolvedValueOnce({ rows: [job], rowCount: 1 }) // SELECT
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // mark processing
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ claimed_at: '2026-10-26 11:23:18.367937+00' }] }) // mark processing
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }); // COMMIT
 
     mockProcessEvent.mockRejectedValueOnce(new Error("Processing failed"));
@@ -173,6 +173,7 @@ describe("Module 5 - Persistent event worker", () => {
     expect(mockPoolQuery.mock.calls[0][1]).toEqual([
       job.id,
       "Processing failed",
+      "2026-10-26 11:23:18.367937+00",
     ]);
     expect(errorSpy).toHaveBeenCalledWith(
       "EVENT_JOB_PROCESSING_FAILED",
@@ -201,7 +202,7 @@ describe("Module 5 - Persistent event worker", () => {
     mockClientQuery
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // BEGIN
       .mockResolvedValueOnce({ rows: [job], rowCount: 1 }) // SELECT
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // mark processing
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ claimed_at: '2026-10-26 11:23:18.367937+00' }] }) // mark processing
       .mockRejectedValueOnce(new Error("Claim COMMIT failed")) // COMMIT
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }); // ROLLBACK
 
@@ -219,7 +220,7 @@ describe("Module 5 - Persistent event worker", () => {
     mockClientQuery
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // claim BEGIN
       .mockResolvedValueOnce({ rows: [job], rowCount: 1 }) // SELECT
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // mark processing
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ claimed_at: '2026-10-26 11:23:18.367937+00' }] }) // mark processing
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // claim COMMIT
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // completion BEGIN
       .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // mark completed
@@ -237,7 +238,7 @@ describe("Module 5 - Persistent event worker", () => {
     expect(mockClientQuery.mock.calls[8][0].trim()).toBe("ROLLBACK");
     expect(mockPoolQuery).toHaveBeenCalledWith(
       expect.stringContaining("SET status = 'failed'"),
-      [job.id, "Completion COMMIT failed"],
+      [job.id, "Completion COMMIT failed", "2026-10-26 11:23:18.367937+00"],
     );
     expect(mockRelease).toHaveBeenCalledTimes(2);
     expect(errorSpy).toHaveBeenCalledWith(
@@ -253,7 +254,7 @@ describe("Module 5 - Persistent event worker", () => {
     mockClientQuery
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // claim BEGIN
       .mockResolvedValueOnce({ rows: [job], rowCount: 1 }) // SELECT stale job
-      .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // mark processing
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ claimed_at: '2026-10-26 11:23:18.367937+00' }] }) // mark processing
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // claim COMMIT
       .mockResolvedValueOnce({ rowCount: undefined, rows: [] }) // completion BEGIN
       .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // mark completed

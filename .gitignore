@@ -17,3 +17,6 @@ firebase-service-account.json
 # Build / test output
 coverage/
 dist/
+
+# Local database CA certificates
+certs/

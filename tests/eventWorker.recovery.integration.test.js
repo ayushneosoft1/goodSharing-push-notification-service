@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 
 const { mockProcessEvent } = vi.hoisted(() => ({
   mockProcessEvent: vi.fn(),
@@ -23,8 +23,97 @@ function verifyLocalTestConfig() {
 }
 
 describe("PR1 - PostgreSQL stale worker recovery", () => {
+  beforeEach(() => {
+    mockProcessEvent.mockReset();
+  });
+
   afterAll(async () => {
     await pool.end();
+  });
+
+  it("does not overwrite a newer worker claim after losing ownership", async () => {
+    verifyLocalTestConfig();
+
+    const eventId = `ownership-loss-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const payload = {
+      eventId,
+      eventType: "PostCreated",
+      postId: "ownership-test-post",
+      authorId: "162",
+      categoryId: "1",
+      title: "Ownership loss regression",
+      createdAt: new Date().toISOString(),
+    };
+
+    let releaseProcessing;
+    let signalProcessingStarted;
+
+    const processingStarted = new Promise((resolve) => {
+      signalProcessingStarted = resolve;
+    });
+
+    const processingGate = new Promise((resolve) => {
+      releaseProcessing = resolve;
+    });
+
+    mockProcessEvent.mockImplementationOnce(async () => {
+      signalProcessingStarted();
+      await processingGate;
+    });
+
+    let workerPromise;
+
+    try {
+      await pool.query(
+        `INSERT INTO processed_events (event_id, event_type, payload)
+         VALUES ($1, $2, $3::jsonb)`,
+        [eventId, "PostCreated", JSON.stringify(payload)],
+      );
+
+      await pool.query(
+        `INSERT INTO event_jobs (event_id, status)
+         VALUES ($1, 'pending')`,
+        [eventId],
+      );
+
+      workerPromise = processNextEventJob();
+      await processingStarted;
+
+      const replacementClaim = await pool.query(
+        `UPDATE event_jobs
+         SET claimed_at = claimed_at + INTERVAL '1 second',
+             status = 'processing',
+             updated_at = NOW()
+         WHERE event_id = $1
+         RETURNING claimed_at`,
+        [eventId],
+      );
+
+      expect(replacementClaim.rowCount).toBe(1);
+
+      releaseProcessing();
+      await workerPromise;
+
+      const result = await pool.query(
+        `SELECT j.status, j.completed_at, j.last_error, e.processed_at
+         FROM event_jobs j
+         JOIN processed_events e ON e.event_id = j.event_id
+         WHERE j.event_id = $1`,
+        [eventId],
+      );
+
+      expect(result.rows[0].status).toBe("processing");
+      expect(result.rows[0].completed_at).toBeNull();
+      expect(result.rows[0].processed_at).toBeNull();
+      expect(result.rows[0].last_error).toBeNull();
+    } finally {
+      releaseProcessing?.();
+      if (workerPromise) await workerPromise;
+      await pool.query(
+        "DELETE FROM processed_events WHERE event_id = $1",
+        [eventId],
+      );
+    }
   });
 
   it("reclaims and completes a stale processing job", async () => {

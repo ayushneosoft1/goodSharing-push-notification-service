@@ -13,7 +13,13 @@ const server = app.listen(env.port, "0.0.0.0", () => {
     `GoodSharing Push Notification Service running on port ${env.port}`,
   );
 
-  void startEventWorker();
+  void startEventWorker().catch((error) => {
+    console.error("EVENT_WORKER_FATAL", {
+      error: error?.message,
+    });
+    process.exitCode = 1;
+    void shutdown("EVENT_WORKER_FATAL");
+  });
 });
 
 let shutdownPromise;
