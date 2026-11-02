@@ -18,10 +18,15 @@ vi.mock("../src/services/firebaseMessagingService.js", () => ({
   isInvalidFcmTokenError: vi.fn(),
 }));
 
+vi.mock("../src/services/deliveryAttemptService.js", () => ({
+  createDeliveryAttempt: vi.fn(),
+}));
+
 import { getCategorySubscribers } from "../src/services/categorySubscriptionService.js";
 import { createInAppNotification } from "../src/services/inAppNotificationService.js";
 import { getActiveDeviceRegistrations } from "../src/services/deviceRegistrationService.js";
 import { sendPushNotificationToTokens } from "../src/services/firebaseMessagingService.js";
+import { createDeliveryAttempt } from "../src/services/deliveryAttemptService.js";
 import { processPostCreatedEvent } from "../src/services/postCreatedEventService.js";
 
 describe("Milestone 4 - PostCreated recipient processing", () => {
@@ -40,6 +45,7 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
     });
 
     getActiveDeviceRegistrations.mockResolvedValue([]);
+    createDeliveryAttempt.mockResolvedValue({ created: true });
 
     sendPushNotificationToTokens.mockResolvedValue({
       successCount: 0,
@@ -48,7 +54,7 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
     });
   });
 
-  it("should skip device lookup and FCM when the notification already exists", async () => {
+  it("should create a missing delivery attempt when the in-app notification already exists", async () => {
     getCategorySubscribers.mockResolvedValue(["165"]);
 
     createInAppNotification.mockResolvedValue({
@@ -59,6 +65,17 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
       post_id: "123",
       created: false,
     });
+
+    getActiveDeviceRegistrations.mockResolvedValue([
+      {
+        id: "device-1",
+        user_id: "165",
+        device_id: "android-1",
+        fcm_token: "token-1",
+        platform: "android",
+        is_active: true,
+      },
+    ]);
 
     const result = await processPostCreatedEvent({
       eventId: "event-replay",
@@ -71,11 +88,19 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
     });
 
     expect(createInAppNotification).toHaveBeenCalledTimes(1);
-    expect(getActiveDeviceRegistrations).not.toHaveBeenCalled();
+    expect(getActiveDeviceRegistrations).toHaveBeenCalledWith("165");
+
+    expect(createDeliveryAttempt).toHaveBeenCalledTimes(1);
+    expect(createDeliveryAttempt).toHaveBeenCalledWith({
+      eventId: "event-replay",
+      userId: "165",
+      deviceRegistrationId: "device-1",
+    });
+
     expect(sendPushNotificationToTokens).not.toHaveBeenCalled();
+
     expect(result.inAppCreatedCount).toBe(0);
-    expect(result.pushSuccessCount).toBe(0);
-    expect(result.pushFailureCount).toBe(0);
+    expect(result.deliveryAttemptsCreatedCount).toBe(1);
   });
 
   it("should process only category subscribers and exclude the author", async () => {
@@ -114,8 +139,9 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
 
     expect(result.recipientCount).toBe(2);
     expect(result.inAppCreatedCount).toBe(2);
-    expect(result.pushSuccessCount).toBe(0);
-    expect(result.pushFailureCount).toBe(0);
+    expect(result.deliveryAttemptsCreatedCount).toBe(0);
+    expect(createDeliveryAttempt).not.toHaveBeenCalled();
+    expect(sendPushNotificationToTokens).not.toHaveBeenCalled();
   });
 
   it("should create one in-app notification and push to multiple active Android devices", async () => {
@@ -172,24 +198,25 @@ describe("Milestone 4 - PostCreated recipient processing", () => {
 
     expect(getActiveDeviceRegistrations).toHaveBeenCalledWith("165");
 
-    expect(sendPushNotificationToTokens).toHaveBeenCalledTimes(1);
-    expect(sendPushNotificationToTokens).toHaveBeenCalledWith({
-      tokens: ["token-1", "token-2"],
-      title: "New Post",
-      body: "New post: Second Book",
-      data: {
-        type: "post_created",
-        postId: "124",
-      },
+    expect(createDeliveryAttempt).toHaveBeenCalledTimes(2);
+    expect(createDeliveryAttempt).toHaveBeenCalledWith({
+      eventId: "event-3",
+      userId: "165",
+      deviceRegistrationId: "device-1",
     });
+    expect(createDeliveryAttempt).toHaveBeenCalledWith({
+      eventId: "event-3",
+      userId: "165",
+      deviceRegistrationId: "device-2",
+    });
+    expect(sendPushNotificationToTokens).not.toHaveBeenCalled();
 
     expect(result.recipientCount).toBe(1);
     expect(result.inAppCreatedCount).toBe(1);
-    expect(result.pushSuccessCount).toBe(2);
-    expect(result.pushFailureCount).toBe(0);
+    expect(result.deliveryAttemptsCreatedCount).toBe(2);
   });
 
-it("should keep the in-app notification when one FCM device fails", async () => {
+it("should create delivery attempts for two devices without sending FCM", async () => {
   vi.clearAllMocks();
 
   getCategorySubscribers.mockResolvedValue(["165"]);
@@ -241,23 +268,26 @@ it("should keep the in-app notification when one FCM device fails", async () => 
 
   expect(createInAppNotification).toHaveBeenCalledTimes(1);
 
-  expect(sendPushNotificationToTokens).toHaveBeenCalledWith({
-    tokens: ["token-1", "token-2"],
-    title: "New Post",
-    body: "New post: Third Book",
-    data: {
-      type: "post_created",
-      postId: "125",
-    },
+  expect(getActiveDeviceRegistrations).toHaveBeenCalledWith("165");
+  expect(createDeliveryAttempt).toHaveBeenCalledTimes(2);
+  expect(createDeliveryAttempt).toHaveBeenCalledWith({
+    eventId: "event-4",
+    userId: "165",
+    deviceRegistrationId: "device-1",
   });
+  expect(createDeliveryAttempt).toHaveBeenCalledWith({
+    eventId: "event-4",
+    userId: "165",
+    deviceRegistrationId: "device-2",
+  });
+  expect(sendPushNotificationToTokens).not.toHaveBeenCalled();
 
   expect(result.recipientCount).toBe(1);
   expect(result.inAppCreatedCount).toBe(1);
-  expect(result.pushSuccessCount).toBe(1);
-  expect(result.pushFailureCount).toBe(1);
+  expect(result.deliveryAttemptsCreatedCount).toBe(2);
 });
 
-it("should deactivate only confirmed invalid FCM tokens", async () => {
+it("should queue both devices without sending FCM or deactivating tokens", async () => {
   vi.clearAllMocks();
 
   getCategorySubscribers.mockResolvedValue(["165"]);
@@ -324,16 +354,23 @@ it("should deactivate only confirmed invalid FCM tokens", async () => {
     "../src/services/deviceRegistrationService.js"
   );
 
-  expect(deactivateDeviceRegistrationByToken).toHaveBeenCalledTimes(1);
-  expect(deactivateDeviceRegistrationByToken).toHaveBeenCalledWith(
-    "invalid-token"
-  );
-  expect(deactivateDeviceRegistrationByToken).not.toHaveBeenCalledWith(
-    "temporary-token"
-  );
+  expect(createDeliveryAttempt).toHaveBeenCalledTimes(2);
+  expect(createDeliveryAttempt).toHaveBeenCalledWith({
+    eventId: "event-5",
+    userId: "165",
+    deviceRegistrationId: "device-invalid",
+  });
+  expect(createDeliveryAttempt).toHaveBeenCalledWith({
+    eventId: "event-5",
+    userId: "165",
+    deviceRegistrationId: "device-temporary",
+  });
 
-  expect(result.pushSuccessCount).toBe(0);
-  expect(result.pushFailureCount).toBe(2);
+  expect(sendPushNotificationToTokens).not.toHaveBeenCalled();
+  expect(deactivateDeviceRegistrationByToken).not.toHaveBeenCalled();
+
+  expect(result.inAppCreatedCount).toBe(1);
+  expect(result.deliveryAttemptsCreatedCount).toBe(2);
 });
 
 it("should create an in-app notification even when the subscriber has no active device", async () => {
@@ -366,7 +403,7 @@ it("should create an in-app notification even when the subscriber has no active 
 
   expect(result.recipientCount).toBe(1);
   expect(result.inAppCreatedCount).toBe(1);
-  expect(result.pushSuccessCount).toBe(0);
-  expect(result.pushFailureCount).toBe(0);
+  expect(result.deliveryAttemptsCreatedCount).toBe(0);
+  expect(createDeliveryAttempt).not.toHaveBeenCalled();
 });
 });

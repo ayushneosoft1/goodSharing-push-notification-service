@@ -6,6 +6,11 @@ import {
   stopEventWorker,
 } from "./services/eventWorker.js";
 
+import {
+  startDeliveryWorker,
+  stopDeliveryWorker,
+} from "./services/deliveryWorker.js";
+
 const app = await createApp();
 
 const server = app.listen(env.port, "0.0.0.0", () => {
@@ -19,6 +24,14 @@ const server = app.listen(env.port, "0.0.0.0", () => {
     });
     process.exitCode = 1;
     void shutdown("EVENT_WORKER_FATAL");
+  });
+
+  void startDeliveryWorker().catch((error) => {
+    console.error("DELIVERY_WORKER_FATAL", {
+      error: error?.message,
+    });
+    process.exitCode = 1;
+    void shutdown("DELIVERY_WORKER_FATAL");
   });
 });
 
@@ -45,6 +58,7 @@ async function shutdown(signal) {
           });
         }),
         stopEventWorker(),
+        stopDeliveryWorker(),
       ]);
 
       await pool.end();

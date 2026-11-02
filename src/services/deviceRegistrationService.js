@@ -187,3 +187,33 @@ export async function deactivateDeviceRegistrationByToken(fcmToken) {
 
   return rows[0] ?? null;
 }
+
+export async function getActiveDeviceRegistrationById({
+  deviceRegistrationId,
+  userId,
+}) {
+  if (!deviceRegistrationId || !userId) {
+    throw new Error("deviceRegistrationId and userId are required");
+  }
+
+  const { rows } = await pool.query(
+    `
+      SELECT
+        id,
+        user_id,
+        device_id,
+        fcm_token,
+        platform,
+        is_active
+      FROM device_registrations
+      WHERE id = $1
+        AND user_id = $2
+        AND is_active = TRUE
+        AND platform = 'android'
+      LIMIT 1
+    `,
+    [deviceRegistrationId, userId],
+  );
+
+  return rows[0] ?? null;
+}
