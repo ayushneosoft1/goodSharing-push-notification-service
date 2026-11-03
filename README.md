@@ -161,9 +161,10 @@ migrations/004_create_categories.sql
 migrations/005_add_category_subscription_fk.sql
 migrations/006_create_processed_events_and_event_jobs.sql
 migrations/007_add_notification_event_id.sql
+migrations/008_create_delivery_attempts.sql
 ```
 
-**Migration safety:** The migration runner executes all seven SQL files
+**Migration safety:** The migration runner executes all eight SQL files
 on every invocation and does not maintain migration-history tracking.
 Before running migrations against an existing database, verify a backup,
 inspect the existing schema, confirm migration compatibility, and verify
@@ -2626,3 +2627,21 @@ Invalid token database verification
 ```
 
 No Posts Service integration, background queues, retries, or other later-milestone functionality should be introduced as part of Milestone 2.
+
+## Module 5 PR2 — Per-Device Delivery Retries
+
+- Each event/device pair has one persistent delivery-attempt record.
+- Transient and unknown FCM errors are retryable; unknown errors do not deactivate devices.
+- Permanent invalid-registration-token errors deactivate the affected device.
+- Delivery is attempted at most five times, using exponential backoff with jitter.
+- After the fifth failed attempt, the record moves to `DEAD_LETTER` and is no longer claimed for retry.
+
+### Inspect dead-letter delivery attempts
+
+```sql
+SELECT id, event_id, user_id, device_registration_id,
+       attempt_count, error_code, updated_at
+FROM delivery_attempts
+WHERE status = 'DEAD_LETTER'
+ORDER BY updated_at DESC;
+```

@@ -146,3 +146,28 @@ export async function createInAppNotification({
 
   return { ...existing.rows[0], created: false };
 }
+
+export async function getNotificationByEventAndUser({ eventId, userId }) {
+  if (!eventId || !userId) {
+    throw new Error("eventId and userId are required");
+  }
+
+  const { rows } = await pool.query(
+    `
+      SELECT
+        id,
+        user_id,
+        event_id,
+        title,
+        message,
+        post_id
+      FROM in_app_notifications
+      WHERE event_id = $1
+        AND user_id = $2
+      LIMIT 1
+    `,
+    [eventId, userId],
+  );
+
+  return rows[0] ?? null;
+}

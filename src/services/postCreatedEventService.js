@@ -1,13 +1,7 @@
 import { getCategorySubscribers } from "./categorySubscriptionService.js";
-import {
-  getActiveDeviceRegistrations,
-  deactivateDeviceRegistrationByToken,
-} from "./deviceRegistrationService.js";
+import { getActiveDeviceRegistrations } from "./deviceRegistrationService.js";
 import { createInAppNotification } from "./inAppNotificationService.js";
-import {
-  sendPushNotificationToTokens,
-  isInvalidFcmTokenError,
-} from "./firebaseMessagingService.js";
+import { createDeliveryAttempt } from "./deliveryAttemptService.js";
 
 export function validatePostCreatedEvent(event) {
   if (!event || typeof event !== "object") {
@@ -58,104 +52,40 @@ export async function processPostCreatedEvent(event) {
   });
 
   let inAppCreatedCount = 0;
-  let pushSuccessCount = 0;
-  let pushFailureCount = 0;
-  const pushFailureCodes = {};
+  let deliveryAttemptsCreatedCount = 0;
 
   for (const userId of recipientIds) {
-    try {
-      const notification = await createInAppNotification({
-        userId,
-        title: "New Post",
-        message: buildNotificationMessage(post.title),
-        postId: post.postId,
-        eventId: post.eventId,
-      });
+    const notification = await createInAppNotification({
+      userId,
+      title: "New Post",
+      message: buildNotificationMessage(post.title),
+      postId: post.postId,
+      eventId: post.eventId,
+    });
 
-      if (!notification.created) {
+    if (notification.created) {
+      inAppCreatedCount += 1;
+    }
+
+    const devices = await getActiveDeviceRegistrations(userId);
+
+    for (const device of devices) {
+      if (
+        device.platform !== "android" ||
+        !device.is_active ||
+        !device.fcm_token
+      ) {
         continue;
       }
 
-      inAppCreatedCount += 1;
-    } catch (error) {
-      console.error("POST_CREATED_IN_APP_FAILED", {
+      const attempt = await createDeliveryAttempt({
         eventId: post.eventId,
-        postId: post.postId,
         userId,
-        error: error?.message,
+        deviceRegistrationId: device.id,
       });
-      continue;
-    }
 
-    let devices;
-
-    try {
-      devices = await getActiveDeviceRegistrations(userId);
-    } catch (error) {
-      console.error("POST_CREATED_DEVICE_LOOKUP_FAILED", {
-        eventId: post.eventId,
-        postId: post.postId,
-        userId,
-        error: error?.message,
-      });
-      continue;
-    }
-
-    const tokens = devices
-      .filter((device) => device.platform === "android")
-      .map((device) => device.fcm_token)
-      .filter(Boolean);
-
-    if (tokens.length === 0) {
-      continue;
-    }
-
-    for (let start = 0; start < tokens.length; start += 500) {
-      const batch = tokens.slice(start, start + 500);
-
-      try {
-        const response = await sendPushNotificationToTokens({
-          tokens: batch,
-          title: "New Post",
-          body: buildNotificationMessage(post.title),
-          data: {
-            type: "post_created",
-            postId: post.postId,
-          },
-        });
-
-        pushSuccessCount += response.successCount;
-        pushFailureCount += response.failureCount;
-
-        const cleanupPromises = [];
-
-        response.responses.forEach((result, index) => {
-          if (!result.success) {
-            const code = result.error?.code || "unknown";
-            pushFailureCodes[code] = (pushFailureCodes[code] || 0) + 1;
-          }
-
-          if (!result.success && isInvalidFcmTokenError(result.error)) {
-            cleanupPromises.push(
-              deactivateDeviceRegistrationByToken(batch[index])
-            );
-          }
-        });
-
-        await Promise.all(cleanupPromises);
-      } catch (error) {
-        pushFailureCount += batch.length;
-
-        const code = error?.code || "unknown";
-        pushFailureCodes[code] = (pushFailureCodes[code] || 0) + batch.length;
-
-        console.error("POST_CREATED_PUSH_FAILED", {
-          eventId: post.eventId,
-          postId: post.postId,
-          userId,
-          error: error?.message,
-          code,
-        });
+      if (attempt.created) {
+        deliveryAttemptsCreatedCount += 1;
       }
     }
   }
@@ -165,9 +95,7 @@ export async function processPostCreatedEvent(event) {
     postId: post.postId,
     recipientCount: recipientIds.length,
     inAppCreatedCount,
-    pushSuccessCount,
-    pushFailureCount,
-    pushFailureCodes,
+    deliveryAttemptsCreatedCount,
   });
 
   return {
@@ -175,7 +103,6 @@ export async function processPostCreatedEvent(event) {
     postId: post.postId,
     recipientCount: recipientIds.length,
     inAppCreatedCount,
-    pushSuccessCount,
-    pushFailureCount,
+    deliveryAttemptsCreatedCount,
   };
 }
