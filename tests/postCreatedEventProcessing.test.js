@@ -406,4 +406,85 @@ it("should create an in-app notification even when the subscriber has no active 
   expect(result.deliveryAttemptsCreatedCount).toBe(0);
   expect(createDeliveryAttempt).not.toHaveBeenCalled();
 });
+
+  it("should create only one notification set when the same event is processed twice", async () => {
+    getCategorySubscribers.mockResolvedValue(["165"]);
+
+    getActiveDeviceRegistrations.mockResolvedValue([
+      {
+        id: "device-duplicate",
+        user_id: "165",
+        device_id: "android-duplicate",
+        fcm_token: "duplicate-test-token",
+        platform: "android",
+        is_active: true,
+      },
+    ]);
+
+    createInAppNotification
+      .mockResolvedValueOnce({
+        id: "notification-duplicate",
+        user_id: "165",
+        created: true,
+      })
+      .mockResolvedValueOnce({
+        id: "notification-duplicate",
+        user_id: "165",
+        created: false,
+      });
+
+    createDeliveryAttempt
+      .mockResolvedValueOnce({ created: true })
+      .mockResolvedValueOnce({ created: false });
+
+    const event = {
+      eventId: "event-duplicate-processing",
+      eventType: "PostCreated",
+      postId: "duplicate-post-123",
+      authorId: "162",
+      categoryId: "1",
+      title: "Duplicate Test Book",
+      createdAt: "2026-10-05T12:00:00.000Z",
+    };
+
+    const firstResult = await processPostCreatedEvent(event);
+    const secondResult = await processPostCreatedEvent(event);
+
+    expect(createInAppNotification).toHaveBeenCalledTimes(2);
+    expect(createDeliveryAttempt).toHaveBeenCalledTimes(2);
+
+    expect(createInAppNotification).toHaveBeenNthCalledWith(1, {
+      userId: "165",
+      title: "New Post",
+      message: "New post: Duplicate Test Book",
+      postId: "duplicate-post-123",
+      eventId: "event-duplicate-processing",
+    });
+
+    expect(createInAppNotification).toHaveBeenNthCalledWith(2, {
+      userId: "165",
+      title: "New Post",
+      message: "New post: Duplicate Test Book",
+      postId: "duplicate-post-123",
+      eventId: "event-duplicate-processing",
+    });
+
+    expect(firstResult.inAppCreatedCount).toBe(1);
+    expect(secondResult.inAppCreatedCount).toBe(0);
+
+    expect(firstResult.deliveryAttemptsCreatedCount).toBe(1);
+    expect(secondResult.deliveryAttemptsCreatedCount).toBe(0);
+
+    expect(
+      firstResult.inAppCreatedCount + secondResult.inAppCreatedCount,
+    ).toBe(1);
+
+    expect(
+      firstResult.deliveryAttemptsCreatedCount +
+        secondResult.deliveryAttemptsCreatedCount,
+    ).toBe(1);
+
+    expect(sendPushNotificationToTokens).not.toHaveBeenCalled();
+  });
+
 });
