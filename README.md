@@ -2322,7 +2322,7 @@ The intended production request path is:
 Android Mobile App
         |
         v
-https://goodsharing.cloud/graphql
+https://goodsharing.space/graphql
         |
         v
 NGINX Ingress
